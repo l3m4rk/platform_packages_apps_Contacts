@@ -8,6 +8,8 @@ ktlint = "1.8.0"
 ktlint-gradle = "14.2.0"
 
 activity-compose = "1.13.0"
+navigation = "2.9.0"
+lifecycle = "2.9.0"
 appcompat = "1.7.1"
 compose-bom = "2026.03.01"
 coroutines = "1.10.2"
@@ -39,6 +41,9 @@ androidx-compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4
 androidx-compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
 androidx-compose-ui-tooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-ui-tooling-preview = { module = "androidx.compose.ui:ui-tooling-preview" }
+
+androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "navigation" }
+androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 
 androidx-palette = { module = "androidx.palette:palette", version.ref = "palette" }
 androidx-swiperefreshlayout = { module = "androidx.swiperefreshlayout:swiperefreshlayout", version.ref = "swiperefreshlayout" }

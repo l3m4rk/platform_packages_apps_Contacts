@@ -1,0 +1,47 @@
+package com.android.contacts.contacts.ui
+
+import android.content.Intent
+import android.os.Bundle
+import android.widget.Toast
+import androidx.activity.ComponentActivity
+import androidx.activity.compose.setContent
+import androidx.compose.ui.platform.LocalContext
+import com.android.contacts.editor.ContactEditorFragment
+import com.android.contacts.preference.ContactsPreferenceActivity
+import com.android.contacts.ui.core.AppTheme
+import com.android.contacts.util.AccountFilterUtil
+import dagger.hilt.android.AndroidEntryPoint
+
+@AndroidEntryPoint
+class ContactsActivity : ComponentActivity() {
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        setContent {
+            AppTheme {
+                val context = LocalContext.current
+                ContactsScreen(
+                    onContactClick = {
+                        Toast.makeText(context, "Contact clicked", Toast.LENGTH_SHORT).show()
+                    },
+                    onCreateContact = { createContact() },
+                    onSettingsClick = { startActivity(createPreferenceIntent()) },
+                )
+            }
+        }
+    }
+
+    private fun createPreferenceIntent() =
+        Intent(this@ContactsActivity, ContactsPreferenceActivity::class.java)
+            .apply {
+                putExtra(
+                    ContactsPreferenceActivity.EXTRA_NEW_LOCAL_PROFILE,
+                    ContactEditorFragment.INTENT_EXTRA_NEW_LOCAL_PROFILE,
+                )
+            }
+
+    private fun createContact() {
+        val filter = AccountFilterUtil.createContactsFilter(this@ContactsActivity)
+        AccountFilterUtil.startEditorIntent(this@ContactsActivity, intent, filter)
+    }
+}

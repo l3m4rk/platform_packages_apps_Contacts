@@ -18,6 +18,8 @@ internal fun nameToColor(name: String): Color {
 }
 
 internal val testContacts = listOf(
+    ". some contact 1",
+    ". some contact 2",
     // Common names
     "Alice Johnson",
     "Bob Smith",

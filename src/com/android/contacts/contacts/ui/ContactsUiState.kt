@@ -14,6 +14,10 @@ data class ContactsUiState(
     val hasGroupWritableAccounts: Boolean = false,
     val selectedGroupId: Long = -1L,
     val selectedAccount: ContactListFilter? = null,
+    val contacts: List<ContactItem> = emptyList(),
+    val isLoading: Boolean = false,
 )
+
+fun ContactsUiState.showLoadingUi() = contacts.isEmpty() && isLoading
 
 enum class ContactsView { ALL_CONTACTS, GROUP_VIEW, ACCOUNT_VIEW }

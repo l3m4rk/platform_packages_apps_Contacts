@@ -1,41 +1,39 @@
 package com.android.contacts.contacts.ui
 
 import android.net.Uri
-import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil3.compose.AsyncImage
 import com.android.contacts.R
-import com.android.contacts.list.ContactListItemView
-import com.android.contacts.ui.core.AppTheme
-import com.google.common.math.LongMath
 import kotlinx.coroutines.launch
 
 @Composable
@@ -98,7 +96,8 @@ fun ContactsScreen(
             ContactsContent(
                 uiState = uiState,
                 onContactClick = onContactClick,
-                padding = Modifier.padding(padding),
+                onRefresh = { /*does nothing for now, later should trigger google resync via ContentResolver*/ },
+                modifier = Modifier.padding(padding),
             )
         }
     }
@@ -108,53 +107,66 @@ fun ContactsScreen(
 internal fun ContactsContent(
     uiState: ContactsUiState,
     onContactClick: (Uri) -> Unit,
-    padding: Modifier,
+    onRefresh: () -> Unit,
+    modifier: Modifier,
 ) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Text(stringResource(R.string.noContacts))
+    when {
+        uiState.showLoadingUi() -> {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .then(modifier),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator()
+            }
+        }
+        uiState.contacts.isEmpty() -> {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(stringResource(R.string.noContacts))
+            }
+        }
+        else -> {
+            val listState = rememberLazyListState()
+            val scope = rememberCoroutineScope()
+            Box(modifier = modifier) {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize().scrollbar(listState),
+                ) {
+                    items(uiState.contacts, key = { it.id }) { contact ->
+                        ContactListItem(
+                            contact = contact,
+                            onClick = { onContactClick(contact.lookupUri) },
+                        )
+                    }
+                }
+            }
+        }
     }
 }
 
+// TODO: move to ui utils
+fun Modifier.scrollbar(state: LazyListState): Modifier = this.drawWithContent {
+    drawContent()
+    val layoutInfo = state.layoutInfo
+    val totalItems = layoutInfo.totalItemsCount
+    if (totalItems == 0) return@drawWithContent
 
-data class ContactItem(
-    val id: Long,
-    val displayName: String,
-    val lookupUri: Uri,
-    val photoUri: Uri?,
-)
+    val visibleItems = layoutInfo.visibleItemsInfo
+    val firstVisible = visibleItems.firstOrNull() ?: return@drawWithContent
+    val lastVisible = visibleItems.lastOrNull() ?: return@drawWithContent
 
-@Composable
-private fun ContactListItem(contact: ContactItem, onClick: () -> Unit) {
-    ListItem(
-        headlineContent = { Text(contact.displayName) },
-        leadingContent = {
-            AsyncImage(
-                model = contact.photoUri,
-                contentDescription = contact.displayName,
-                placeholder = painterResource(R.drawable.quantum_ic_person_vd_theme_24),
-                error = painterResource(R.drawable.ic_person_avatar),
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(Color.LightGray)
-            )
-        },
-        modifier = Modifier.clickable(onClick = onClick)
+    val thumbsStartFraction = firstVisible.index.toFloat() / totalItems
+    val thumbsEndFraction = (lastVisible.index + 1).toFloat() / totalItems
+
+    val thumbTop = size.height * thumbsStartFraction
+    val thumbBottom = size.height * thumbsEndFraction
+
+    drawRoundRect(
+        color = Color.Gray.copy(alpha = 0.5f),
+        topLeft = Offset(size.width - 6.dp.toPx(), thumbTop),
+        size = Size(4.dp.toPx(), thumbBottom - thumbTop),
+        cornerRadius = CornerRadius(2.dp.toPx())
     )
-}
-
-@Preview
-@Composable
-private fun ContactListItem() {
-    AppTheme {
-        ContactListItem(
-            ContactItem(
-                id = 123L,
-                displayName = "Test Contact",
-                lookupUri = Uri.parse("hadfdsf"),
-                null,
-            ),
-            onClick = {}
-        )
-    }
 }

@@ -7,9 +7,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.ui.platform.LocalContext
 import com.android.contacts.editor.ContactEditorFragment
+import com.android.contacts.logging.ScreenEvent
 import com.android.contacts.preference.ContactsPreferenceActivity
 import com.android.contacts.ui.core.AppTheme
 import com.android.contacts.util.AccountFilterUtil
+import com.android.contacts.util.ImplicitIntentsUtil
 import dagger.hilt.android.AndroidEntryPoint
 
 @AndroidEntryPoint
@@ -19,10 +21,13 @@ class ContactsActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             AppTheme {
-                val context = LocalContext.current
                 ContactsScreen(
-                    onContactClick = {
-                        Toast.makeText(context, "Contact clicked", Toast.LENGTH_SHORT).show()
+                    onContactClick = { uri ->
+                        ImplicitIntentsUtil.startQuickContact(
+                            this,
+                            uri,
+                            ScreenEvent.ScreenType.ALL_CONTACTS
+                        )
                     },
                     onCreateContact = { createContact() },
                     onSettingsClick = { startActivity(createPreferenceIntent()) },

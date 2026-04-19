@@ -55,6 +55,14 @@ android {
             resValue("string", "contacts_file_provider_authority", "$selfPkgName.files")
             resValue("string", "contacts_sdn_provider_authority", "$selfPkgName.sdn")
         }
+
+        create("perf") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".debug"
+            matchingFallbacks += listOf("release")
+            resValue("string", "applicationLabel", "Contacts d")
+            signingConfig = signingConfigs.getByName("debug")
+        }
     }
 
     sourceSets.getByName("main") {

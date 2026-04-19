@@ -120,13 +120,24 @@ fun ContactsScreen(
                     searchContent = {
                         if (uiState.searchQuery.isNotEmpty()) {
                             HorizontalDivider()
-                            LazyColumn {
-                                items(uiState.contacts, key = { it.id }) { contact ->
-                                    ContactListItem(
-                                        contact = contact,
-                                        onClick = { onContactClick(contact.lookupUri) },
-                                        searchQuery = uiState.searchQuery,
-                                    )
+                            if (uiState.contacts.isEmpty()) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 32.dp),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(stringResource(R.string.listFoundAllContactsZero))
+                                }
+                            } else {
+                                LazyColumn {
+                                    items(uiState.contacts, key = { it.id }) { contact ->
+                                        ContactListItem(
+                                            contact = contact,
+                                            onClick = { onContactClick(contact.lookupUri) },
+                                            searchQuery = uiState.searchQuery,
+                                        )
+                                    }
                                 }
                             }
                         }

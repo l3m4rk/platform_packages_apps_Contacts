@@ -1,6 +1,7 @@
 package com.android.contacts.contacts.ui
 
 import android.net.Uri
+import androidx.annotation.Size
 import androidx.compose.ui.graphics.Color
 
 data class ContactItem(
@@ -11,6 +12,7 @@ data class ContactItem(
     val snippet: String? = null,
 )
 
+@Suppress("detekt:MagicNumber")
 internal fun nameToColor(name: String): Color {
     val hash = name.fold(0) { acc, c -> acc * 31 + c.code }
     val hue = ((hash % 360) + 360) % 360

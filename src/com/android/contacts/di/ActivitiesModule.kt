@@ -15,7 +15,4 @@ object ActivitiesModule {
     @Provides
     fun provideProviderStatusWatcher(@ApplicationContext ctx: Context): ProviderStatusWatcher =
         ProviderStatusWatcher.getInstance(ctx)
-
-//    fun p
-
 }

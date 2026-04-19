@@ -33,7 +33,8 @@ internal fun parseSnippet(raw: String, highlightColor: Color) = buildAnnotatedSt
             '[' -> {
                 val end = raw.indexOf(']', i)
                 if (end == -1) {
-                    append(raw.substring(i)); break
+                    append(raw.substring(i))
+                    break
                 }
                 withStyle(SpanStyle(color = highlightColor, fontWeight = FontWeight.Bold)) {
                     append(raw.substring(i + 1, end))

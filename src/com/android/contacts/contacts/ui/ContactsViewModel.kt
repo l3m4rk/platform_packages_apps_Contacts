@@ -24,21 +24,18 @@ class ContactsViewModel @Inject constructor(
     private val getContacts: GetContactsUseCase,
 ) : ViewModel() {
 
-    private val _searchQuery = MutableStateFlow("")
+    private val searchQueryFlow = MutableStateFlow("")
     private val _uiState = MutableStateFlow(ContactsUiState())
     val uiState: StateFlow<ContactsUiState> = _uiState.asStateFlow()
 
     init {
         viewModelScope.launch {
-            _searchQuery
-                .debounce(SEARCH_DEBOUNCE)
-                .flatMapLatest { query ->
+            searchQueryFlow.debounce(SEARCH_DEBOUNCE).flatMapLatest { query ->
                     getContacts(query).catch {
                         _uiState.update { it.copy(isLoading = false) }
                         emit(emptyList())
                     }
-                }
-                .collect { contacts ->
+                }.collect { contacts ->
                     _uiState.update { it.copy(contacts = contacts, isLoading = false) }
                 }
         }
@@ -49,12 +46,12 @@ class ContactsViewModel @Inject constructor(
     }
 
     fun onSearchQueryChanged(query: String) {
-        _searchQuery.value = query
+        searchQueryFlow.value = query
         _uiState.update { it.copy(searchQuery = query) }
     }
 
     fun onSearchClosed() {
-        _searchQuery.value = ""
+        searchQueryFlow.value = ""
         _uiState.update { it.copy(isSearchActive = false, searchQuery = "") }
     }
 

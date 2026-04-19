@@ -72,49 +72,52 @@ internal fun ContactListItem(
                 )
             }
         },
-        leadingContent = {
-            val context = LocalContext.current
-            if (contact.photoUri != null) {
-                AsyncImage(
-                    model = ImageRequest.Builder(context)
-                        .data(contact.photoUri)
-                        .crossfade(true)
-                        .build(),
-                    contentDescription = contact.displayName,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape),
-                )
-            } else {
-                val backgroundColor =
-                    remember(contact.displayName) { nameToColor(contact.displayName) }
-                Box(
-                    contentAlignment = Alignment.Center,
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(backgroundColor),
-                ) {
-                    val initial = contact.displayName.trimStart().firstOrNull()
-                    if (initial != null && initial.isLetter()) {
-                        Text(
-                            text = initial.uppercaseChar().toString(),
-                            color = Color.White,
-                            style = MaterialTheme.typography.titleMedium,
-                        )
-                    } else {
-                        Icon(
-                            imageVector = Icons.Default.Person,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp),
-                        )
-                    }
-                }
-            }
-        },
+        leadingContent = { ContactAvatar(contact) },
         modifier = Modifier.clickable(onClick = onClick),
     )
+}
+
+@Composable
+private fun ContactAvatar(contact: ContactItem) {
+    val context = LocalContext.current
+    if (contact.photoUri != null) {
+        AsyncImage(
+            model = ImageRequest.Builder(context)
+                .data(contact.photoUri)
+                .crossfade(true)
+                .build(),
+            contentDescription = contact.displayName,
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape),
+        )
+    } else {
+        val backgroundColor =
+            remember(contact.displayName) { nameToColor(contact.displayName) }
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(backgroundColor),
+        ) {
+            val initial = contact.displayName.trimStart().firstOrNull()
+            if (initial != null && initial.isLetter()) {
+                Text(
+                    text = initial.uppercaseChar().toString(),
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleMedium,
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.Person,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(24.dp),
+                )
+            }
+        }
+    }
 }
 
 @Preview

@@ -8,6 +8,7 @@ data class ContactItem(
     val displayName: String,
     val lookupUri: Uri,
     val photoUri: Uri?,
+    val snippet: String? = null,
 )
 
 internal fun nameToColor(name: String): Color {

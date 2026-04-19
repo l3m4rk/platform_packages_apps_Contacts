@@ -88,7 +88,7 @@ public class SearchUtil {
      *         found in value.
      */
     @VisibleForTesting
-    static int contains(String value, String substring) {
+    public static int contains(String value, String substring) {
         if (value.length() < substring.length()) {
             return -1;
         }

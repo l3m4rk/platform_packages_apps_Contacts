@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.flowOn
 import javax.inject.Inject
 import kotlin.collections.buildList
 
-interface GroupRepository {
+interface GroupsRepository {
     fun getGroups(): Flow<List<GroupListItem>>
 }
 
@@ -21,7 +21,7 @@ interface GroupRepository {
 internal class GroupsRepositoryImpl @Inject constructor(
     @param:ApplicationContext private val context: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
-) : GroupRepository {
+) : GroupsRepository {
     override fun getGroups(): Flow<List<GroupListItem>> = flow {
         val groups = context.contentResolver.query(
             Groups.CONTENT_SUMMARY_URI,

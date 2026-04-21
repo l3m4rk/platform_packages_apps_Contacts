@@ -69,18 +69,140 @@
         android:taskAffinity="android.task.contacts"
         android:usesCleartextTraffic="false">
 
-        <!-- temp activity for testing ui -->
-        <activity
-            android:name=".contacts.ui.ContactsActivity"
-            android:theme="@style/Theme.Compose"
+        <!-- todo: temp activity for developing ui, remove later -->
+<!--        <activity-->
+<!--            android:name=".contacts.ui.ContactsActivity"-->
+<!--            android:theme="@style/Theme.Compose"-->
+<!--            android:exported="true">-->
+<!--            <intent-filter>-->
+<!--                <action android:name="android.intent.action.MAIN" />-->
+<!--                <category android:name="android.intent.category.LAUNCHER" />-->
+<!--            </intent-filter>-->
+<!--        </activity>-->
+
+        <activity-alias
+            android:name=".OldContactsActivity"
+            android:targetActivity=".activities.PeopleActivity"
+            android:label="Old"
+            android:enabled="true"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
-        </activity>
+        </activity-alias>
 
         <!-- The main Contacts activity with the contact list, favorites, and groups. -->
+        <activity
+            android:name=".v2.contacts.ui.PeopleActivity"
+            android:alwaysRetainTaskState="true"
+            android:launchMode="singleTop"
+            android:resizeableActivity="true"
+            android:theme="@style/LaunchScreenTheme"
+            android:exported="true"
+            android:visibleToInstantApps="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN"/>
+
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.LAUNCHER"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <category android:name="android.intent.category.APP_CONTACTS"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="com.android.contacts.action.LIST_DEFAULT"/>
+
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.TAB"/>
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="com.android.contacts.action.LIST_CONTACTS"/>
+
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.TAB"/>
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="com.android.contacts.action.LIST_ALL_CONTACTS"/>
+
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.TAB"/>
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="com.android.contacts.action.LIST_CONTACTS_WITH_PHONES"/>
+
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.TAB"/>
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="com.android.contacts.action.LIST_STARRED"/>
+
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.TAB"/>
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="com.android.contacts.action.LIST_FREQUENT"/>
+
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.TAB"/>
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="com.android.contacts.action.LIST_STREQUENT"/>
+
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.TAB"/>
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.SEARCH"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="vnd.android.cursor.dir/contact"/>
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.SEARCH"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+
+                <data android:mimeType="vnd.android.cursor.dir/person"/>
+                <data android:mimeType="vnd.android.cursor.dir/contact"/>
+                <data android:mimeType="vnd.android.cursor.item/group"/>
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.EDIT"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="vnd.android.cursor.item/group"/>
+            </intent-filter>
+
+            <intent-filter>
+                <action android:name="android.intent.action.INSERT"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="vnd.android.cursor.dir/group"/>
+            </intent-filter>
+
+            <meta-data
+                android:name="android.app.searchable"
+                android:resource="@xml/searchable"
+                />
+
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts"
+                />
+
+        </activity>
+
+        <!-- todo: delete when feature parity achieved -->
         <activity
             android:name=".activities.PeopleActivity"
             android:alwaysRetainTaskState="true"
@@ -89,12 +211,10 @@
             android:theme="@style/LaunchScreenTheme"
             android:exported="true"
             android:visibleToInstantApps="true"
+            android:taskAffinity="android.task.contacts.old"
             >
             <intent-filter>
-<!--                <action android:name="android.intent.action.MAIN"/>-->
-
                 <category android:name="android.intent.category.DEFAULT"/>
-<!--                <category android:name="android.intent.category.LAUNCHER"/>-->
                 <category android:name="android.intent.category.BROWSABLE"/>
                 <category android:name="android.intent.category.APP_CONTACTS"/>
             </intent-filter>
@@ -246,21 +366,21 @@
         <!-- Backwards compatibility: somebody may have hard coded this activity name -->
         <activity-alias
             android:name="ContactsListActivity"
-            android:targetActivity=".activities.PeopleActivity"
+            android:targetActivity=".v2.contacts.ui.PeopleActivity"
             />
 
         <!-- Backwards compatibility: "Contacts" from Honeycomb -->
         <activity-alias
             android:name=".activities.ContactsFrontDoor"
             android:exported="true"
-            android:targetActivity=".activities.PeopleActivity"
+            android:targetActivity=".v2.contacts.ui.PeopleActivity"
             />
 
         <!-- Backwards compatibility: "Contacts" from Gingerbread and earlier -->
         <activity-alias
             android:name="DialtactsContactsEntryActivity"
             android:exported="true"
-            android:targetActivity=".activities.PeopleActivity"
+            android:targetActivity=".v2.contacts.ui.PeopleActivity"
             />
 
         <!-- Used to set options -->

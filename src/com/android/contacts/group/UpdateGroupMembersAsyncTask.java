@@ -27,15 +27,15 @@ import android.widget.Toast;
 
 import com.android.contacts.ContactSaveService;
 import com.android.contacts.R;
-import com.android.contacts.activities.PeopleActivity;
+import com.android.contacts.v2.contacts.ui.PeopleActivity;
 
 /**
  * Starts an Intent to add/remove the raw contacts for the given contact IDs to/from a group.
  * Only the raw contacts that belong to the specified account are added or removed.
  */
 public class UpdateGroupMembersAsyncTask extends AsyncTask<Void, Void, Intent> {
-    static final int TYPE_ADD = 0;
-    static final int TYPE_REMOVE = 1;
+    public static final int TYPE_ADD = 0;
+    public static final int TYPE_REMOVE = 1;
 
     private final Context mContext;
     private final int mType;

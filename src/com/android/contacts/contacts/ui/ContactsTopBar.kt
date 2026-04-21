@@ -8,6 +8,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -15,9 +16,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -33,6 +36,7 @@ internal fun ContactsTopBar(
     onSearchClosed: () -> Unit,
     onMenuClick: () -> Unit,
     modifier: Modifier = Modifier,
+    trailingActions: @Composable () -> Unit = {},
     searchContent: @Composable ColumnScope.() -> Unit = {},
 ) {
     val horizontalPadding by animateDpAsState(
@@ -72,18 +76,24 @@ internal fun ContactsTopBar(
                     }
                 },
                 trailingIcon = {
-                    if (isSearchActive && searchQuery.isNotEmpty()) {
-                        IconButton(onClick = { onSearchQueryChanged("") }) {
-                            Icon(
-                                imageVector = Icons.Default.Close,
-                                contentDescription = stringResource(R.string.description_clear_search),
-                            )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (!isSearchActive) trailingActions()
+                        when {
+                            isSearchActive && searchQuery.isNotEmpty() -> {
+                                IconButton(onClick = { onSearchQueryChanged("") }) {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = stringResource(R.string.description_clear_search),
+                                    )
+                                }
+                            }
+                            !isSearchActive -> {
+                                Icon(
+                                    imageVector = Icons.Default.Search,
+                                    contentDescription = stringResource(R.string.searchHint),
+                                )
+                            }
                         }
-                    } else if (!isSearchActive) {
-                        Icon(
-                            imageVector = Icons.Default.Search,
-                            contentDescription = stringResource(R.string.searchHint),
-                        )
                     }
                 },
             )
@@ -92,5 +102,27 @@ internal fun ContactsTopBar(
         onExpandedChange = { if (it) onSearchOpen() else onSearchClosed() },
         modifier = modifier.padding(start = horizontalPadding, end = horizontalPadding, bottom = bottomPadding),
         content = searchContent,
+    )
+}
+
+@Composable
+internal fun GroupTopBar(
+    title: String,
+    onMenuClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    actions: @Composable () -> Unit = {},
+) {
+    TopAppBar(
+        title = { Text(title) },
+        navigationIcon = {
+            IconButton(onClick = onMenuClick) {
+                Icon(
+                    imageVector = Icons.Default.Menu,
+                    contentDescription = stringResource(R.string.navigation_drawer_open),
+                )
+            }
+        },
+        actions = { actions() },
+        modifier = modifier,
     )
 }

@@ -7,7 +7,6 @@ data class ContactsUiState(
     val currentView: ContactsView = ContactsView.ALL_CONTACTS,
     val isSearchActive: Boolean = false,
     val searchQuery: String = "",
-    val isFabVisible: Boolean = true,
     val groups: List<GroupListItem> = emptyList(),
     val accounts: List<AccountDisplayItem> = emptyList(),
     val providerStatus: Int? = null,
@@ -17,6 +16,9 @@ data class ContactsUiState(
     val contacts: List<ContactItem> = emptyList(),
     val isLoading: Boolean = false,
 )
+
+val ContactsUiState.isFabVisible: Boolean
+    get() = currentView != ContactsView.GROUP_VIEW && !isSearchActive
 
 fun ContactsUiState.showLoadingUi() = contacts.isEmpty() && isLoading
 

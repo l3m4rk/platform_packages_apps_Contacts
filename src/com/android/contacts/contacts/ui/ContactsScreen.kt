@@ -1,10 +1,16 @@
 package com.android.contacts.contacts.ui
 
 import android.net.Uri
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
@@ -12,10 +18,18 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AccountBox
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -24,6 +38,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -35,18 +50,25 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.android.contacts.R
+import com.android.contacts.contacts.data.accounts.AccountDisplayItem
+import com.android.contacts.group.GroupListItem
 import kotlinx.coroutines.launch
+import android.icu.text.MessageFormat
+import java.util.Locale
 
 @Composable
 fun ContactsScreen(
@@ -54,17 +76,26 @@ fun ContactsScreen(
     onContactClick: (Uri) -> Unit,
     onCreateContact: () -> Unit,
     onCreateLabel: () -> Unit = {},
+    onAddMember: (GroupListItem) -> Unit = {},
+    onRenameGroup: (GroupListItem) -> Unit = {},
+    onDeleteGroup: (GroupListItem) -> Unit = {},
+    onSendEmail: (GroupListItem) -> Unit = {},
+    onSendMessage: (GroupListItem) -> Unit = {},
+    onRemoveContacts: (GroupListItem) -> Unit = {},
     onSettingsClick: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val allContactsTitle = stringResource(R.string.contactsList)
+    val selectedGroup = uiState.groups.find { it.groupId == uiState.selectedGroupId }
     val topBarTitle = when (uiState.currentView) {
         ContactsView.ALL_CONTACTS -> allContactsTitle
-        ContactsView.GROUP_VIEW -> uiState.groups.find { it.groupId == uiState.selectedGroupId }?.title ?: allContactsTitle
+        ContactsView.GROUP_VIEW -> selectedGroup?.title ?: allContactsTitle
         ContactsView.ACCOUNT_VIEW -> uiState.selectedAccount?.displayName ?: allContactsTitle
     }
+    var groupMenuExpanded by remember { mutableStateOf(false) }
+    LaunchedEffect(uiState.selectedGroupId) { groupMenuExpanded = false }
 
     var searchBarHeightPx by remember { mutableFloatStateOf(0f) }
     var searchBarOffsetPx by remember { mutableFloatStateOf(0f) }
@@ -114,6 +145,76 @@ fun ContactsScreen(
         Scaffold(
             modifier = Modifier.nestedScroll(nestedScrollConnection),
             topBar = {
+                if (uiState.currentView == ContactsView.GROUP_VIEW) {
+                    GroupTopBar(
+                        title = topBarTitle,
+                        onMenuClick = { scope.launch { drawerState.open() } },
+                        actions = {
+                            selectedGroup?.let { group ->
+                                IconButton(onClick = { onAddMember(group) }) {
+                                    Icon(
+                                        Icons.Default.PersonAdd,
+                                        contentDescription = stringResource(R.string.menu_addContactsToGroup),
+                                    )
+                                }
+                                Box {
+                                    IconButton(onClick = { groupMenuExpanded = true }) {
+                                        Icon(
+                                            Icons.Default.MoreVert,
+                                            contentDescription = stringResource(R.string.menu_addToGroup),
+                                        )
+                                    }
+                                    DropdownMenu(
+                                        expanded = groupMenuExpanded,
+                                        onDismissRequest = { groupMenuExpanded = false },
+                                    ) {
+                                        val hasContacts = uiState.contacts.isNotEmpty()
+                                        if (hasContacts) {
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(R.string.menu_sendEmailOption)) },
+                                                onClick = {
+                                                    groupMenuExpanded = false
+                                                    onSendEmail(group)
+                                                },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(R.string.menu_sendMessageOption)) },
+                                                onClick = {
+                                                    groupMenuExpanded = false
+                                                    onSendMessage(group)
+                                                },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(R.string.menu_editGroup)) },
+                                                onClick = {
+                                                    groupMenuExpanded = false
+                                                    onRemoveContacts(group)
+                                                },
+                                            )
+                                            HorizontalDivider()
+                                        }
+                                        if (!group.isReadOnly) {
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(R.string.menu_renameGroup)) },
+                                                onClick = {
+                                                    groupMenuExpanded = false
+                                                    onRenameGroup(group)
+                                                },
+                                            )
+                                            DropdownMenuItem(
+                                                text = { Text(stringResource(R.string.menu_deleteGroup)) },
+                                                onClick = {
+                                                    groupMenuExpanded = false
+                                                    onDeleteGroup(group)
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                    )
+                } else {
                 ContactsTopBar(
                     isSearchActive = uiState.isSearchActive,
                     searchQuery = uiState.searchQuery,
@@ -152,6 +253,7 @@ fun ContactsScreen(
                         }
                     },
                 )
+                }
             },
             floatingActionButton = {
                 if (uiState.isFabVisible) {
@@ -166,18 +268,29 @@ fun ContactsScreen(
         ) { padding ->
             val density = LocalDensity.current
             if (!uiState.isSearchActive) {
-                ContactsContent(
-                    uiState = uiState,
-                    filterTitle = topBarTitle,
-                    onContactClick = onContactClick,
-                    onRefresh = { /*later: trigger Google resync via ContentResolver*/ },
+                val topPadding = (padding.calculateTopPadding() +
+                    with(density) { searchBarOffsetPx.toDp() })
+                    .coerceAtLeast(0.dp)
+                Column(
                     modifier = Modifier.padding(
-                        top = (padding.calculateTopPadding() +
-                            with(density) { searchBarOffsetPx.toDp() })
-                            .coerceAtLeast(0.dp),
+                        top = topPadding,
                         bottom = padding.calculateBottomPadding(),
                     ),
-                )
+                ) {
+                    if (uiState.currentView == ContactsView.GROUP_VIEW) {
+                        selectedGroup?.let { group ->
+                            GroupInfoHeader(group = group, accounts = uiState.accounts)
+                        }
+                    }
+                    ContactsContent(
+                        uiState = uiState,
+                        filterTitle = topBarTitle,
+                        onContactClick = onContactClick,
+                        onRefresh = { /*later: trigger Google resync via ContentResolver*/ },
+                        modifier = Modifier.weight(1f),
+                        onAddContacts = selectedGroup?.let { group -> { onAddMember(group) } },
+                    )
+                }
             }
         }
     }
@@ -190,6 +303,7 @@ internal fun ContactsContent(
     onContactClick: (Uri) -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier,
+    onAddContacts: (() -> Unit)? = null,
 ) {
     when {
         uiState.showLoadingUi() -> {
@@ -203,13 +317,42 @@ internal fun ContactsContent(
             }
         }
         uiState.contacts.isEmpty() -> {
-            val emptyMessage = when (uiState.currentView) {
-                ContactsView.ALL_CONTACTS -> stringResource(R.string.noContacts)
-                ContactsView.GROUP_VIEW -> stringResource(R.string.listFoundAllContactsZero)
-                ContactsView.ACCOUNT_VIEW -> stringResource(R.string.listFoundAllContactsZero)
-            }
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(emptyMessage)
+            when (uiState.currentView) {
+                ContactsView.GROUP_VIEW -> {
+                    Column(
+                        modifier = Modifier.fillMaxSize().then(modifier),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.AccountBox,
+                            contentDescription = null,
+                            modifier = Modifier.size(80.dp),
+                            tint = MaterialTheme.colorScheme.outline,
+                        )
+                        Spacer(Modifier.size(16.dp))
+                        Text(
+                            text = stringResource(R.string.emptyGroup),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (onAddContacts != null) {
+                            Spacer(Modifier.size(16.dp))
+                            FilledTonalButton(onClick = onAddContacts) {
+                                Text(stringResource(R.string.menu_addContactsToGroup))
+                            }
+                        }
+                    }
+                }
+                else -> {
+                    val emptyMessage = when (uiState.currentView) {
+                        ContactsView.ALL_CONTACTS -> stringResource(R.string.noContacts)
+                        else -> stringResource(R.string.listFoundAllContactsZero)
+                    }
+                    Box(Modifier.fillMaxSize().then(modifier), contentAlignment = Alignment.Center) {
+                        Text(emptyMessage)
+                    }
+                }
             }
         }
         else -> {
@@ -230,6 +373,50 @@ internal fun ContactsContent(
                 }
             }
         }
+    }
+}
+
+@Composable
+internal fun GroupInfoHeader(
+    group: GroupListItem,
+    accounts: List<AccountDisplayItem>,
+) {
+    val context = LocalContext.current
+    val accountItem = accounts.find {
+        it.filter.accountName == group.accountName && it.filter.accountType == group.accountType
+    }
+    val headerText = remember(group.memberCount, group.accountName) {
+        val pattern = context.getString(R.string.contacts_count_with_account)
+        MessageFormat(pattern, Locale.getDefault())
+            .format(mapOf("count" to group.memberCount, "account" to (group.accountName ?: "")))
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        val bitmap = remember(accountItem?.icon) { accountItem?.icon?.toBitmap()?.asImageBitmap() }
+        if (bitmap != null) {
+            Image(
+                bitmap = bitmap,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+            )
+        } else {
+            Icon(
+                imageVector = Icons.Default.AccountBox,
+                contentDescription = null,
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            text = headerText,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

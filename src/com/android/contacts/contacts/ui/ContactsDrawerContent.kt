@@ -41,7 +41,7 @@ fun ContactsDrawerContent(
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    ModalDrawerSheet(modifier = Modifier) {
+    ModalDrawerSheet(modifier = modifier) {
         LazyColumn {
             item {
                 NavigationDrawerItem(

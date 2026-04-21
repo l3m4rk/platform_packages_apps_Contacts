@@ -7,7 +7,9 @@ import android.provider.ContactsContract
 import androidx.compose.ui.graphics.vector.Group
 import com.android.contacts.group.GroupListItem
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.Runs
 import junit.framework.TestCase.assertEquals
 import junit.framework.TestCase.assertFalse
 import junit.framework.TestCase.assertTrue
@@ -31,6 +33,8 @@ class GroupsRepositoryTest {
     @Before
     fun setUp() {
         every { context.contentResolver } returns resolver
+        every { resolver.registerContentObserver(any(), any(), any()) } just Runs
+        every { resolver.unregisterContentObserver(any()) } just Runs
     }
 
     private fun makeCursor(vararg rows: Array<Any?>): MatrixCursor {

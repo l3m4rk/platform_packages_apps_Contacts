@@ -53,6 +53,7 @@ fun ContactsScreen(
     viewModel: ContactsViewModel = hiltViewModel(),
     onContactClick: (Uri) -> Unit,
     onCreateContact: () -> Unit,
+    onCreateLabel: () -> Unit = {},
     onSettingsClick: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -99,7 +100,8 @@ fun ContactsScreen(
                     scope.launch { drawerState.close() }
                 },
                 onCreateLabelClick = {
-                    // TODO: navigate to create group
+                    scope.launch { drawerState.close() }
+                    onCreateLabel()
                 },
                 onAccountClick = { item ->
                     viewModel.onAccountSelected(item)

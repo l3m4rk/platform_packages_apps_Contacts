@@ -2,11 +2,9 @@ package com.android.contacts.contacts.ui
 
 import android.content.Intent
 import android.os.Bundle
-import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.ui.platform.LocalContext
 import com.android.contacts.editor.ContactEditorFragment
 import com.android.contacts.logging.ScreenEvent
 import com.android.contacts.preference.ContactsPreferenceActivity

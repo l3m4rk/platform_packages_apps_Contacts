@@ -1,14 +1,18 @@
 package com.android.contacts.contacts.data.groups
 
 import android.content.Context
+import android.database.ContentObserver
+import android.os.Handler
+import android.os.Looper
 import android.provider.ContactsContract.Groups
 import com.android.contacts.di.core.IoDispatcher
 import com.android.contacts.group.GroupListItem
 import com.android.contacts.group.GroupUtil
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
 import javax.inject.Inject
 import kotlin.collections.buildList
@@ -22,21 +26,36 @@ internal class GroupsRepositoryImpl @Inject constructor(
     @param:ApplicationContext private val context: Context,
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : GroupsRepository {
-    override fun getGroups(): Flow<List<GroupListItem>> = flow {
-        val groups = context.contentResolver.query(
-            Groups.CONTENT_SUMMARY_URI,
-            PROJECTION,
-            GroupUtil.DEFAULT_SELECTION,
-            null,
-            GroupUtil.getGroupsSortOrder(),
-        )?.use { cursor ->
-            buildList {
-                for (i in 0 until cursor.count) {
-                    GroupUtil.getGroupListItem(cursor, i)?.let { add(it) }
+    override fun getGroups(): Flow<List<GroupListItem>> = callbackFlow {
+        fun query() {
+            val groups = context.contentResolver.query(
+                Groups.CONTENT_SUMMARY_URI,
+                PROJECTION,
+                GroupUtil.DEFAULT_SELECTION,
+                null,
+                GroupUtil.getGroupsSortOrder(),
+            )?.use { cursor ->
+                buildList {
+                    for (i in 0 until cursor.count) {
+                        GroupUtil.getGroupListItem(cursor, i)?.let { add(it) }
+                    }
                 }
-            }
-        } ?: emptyList()
-        emit(groups.filter { !GroupUtil.isEmptyFFCGroup(it) })
+            } ?: emptyList()
+            trySend(groups.filter { !GroupUtil.isEmptyFFCGroup(it) })
+        }
+
+        val observer = object : ContentObserver(Handler(Looper.getMainLooper())) {
+            override fun onChange(selfChange: Boolean) = query()
+        }
+        context.contentResolver.registerContentObserver(
+            Groups.CONTENT_SUMMARY_URI,
+            /* notifyForDescendants */ true,
+            observer,
+        )
+
+        query() // initial load
+
+        awaitClose { context.contentResolver.unregisterContentObserver(observer) }
     }.flowOn(ioDispatcher)
 
     companion object {

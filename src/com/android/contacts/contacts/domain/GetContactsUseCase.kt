@@ -8,6 +8,8 @@ import javax.inject.Inject
 class GetContactsUseCase @Inject constructor(
     private val repository: ContactsRepository
 ) {
-    operator fun invoke(query: String = ""): Flow<List<ContactItem>> =
-        repository.getContacts(query)
+    operator fun invoke(
+        query: String = "",
+        filter: ContactsFilter = ContactsFilter.AllContacts,
+    ): Flow<List<ContactItem>> = repository.getContacts(query, filter)
 }

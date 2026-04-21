@@ -27,6 +27,7 @@ import com.android.contacts.R
 internal fun ContactsTopBar(
     isSearchActive: Boolean,
     searchQuery: String,
+    title: String,
     onSearchQueryChanged: (String) -> Unit,
     onSearchOpen: () -> Unit,
     onSearchClosed: () -> Unit,
@@ -51,10 +52,7 @@ internal fun ContactsTopBar(
                 expanded = isSearchActive,
                 onExpandedChange = { if (it) onSearchOpen() else onSearchClosed() },
                 placeholder = {
-                    Text(
-                        if (isSearchActive) stringResource(R.string.hint_findContacts)
-                        else stringResource(R.string.contactsList),
-                    )
+                    Text(if (isSearchActive) stringResource(R.string.hint_findContacts) else title)
                 },
                 leadingIcon = {
                     if (isSearchActive) {

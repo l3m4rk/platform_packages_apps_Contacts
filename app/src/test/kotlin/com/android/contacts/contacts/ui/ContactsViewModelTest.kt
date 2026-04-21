@@ -1,6 +1,7 @@
 package com.android.contacts.contacts.ui
 
 import android.net.Uri
+import com.android.contacts.contacts.domain.ContactsFilter
 import com.android.contacts.contacts.domain.GetContactsUseCase
 import com.android.contacts.contacts.domain.GetDrawerDataUseCase
 import com.android.contacts.contacts.domain.DrawerData
@@ -16,8 +17,10 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
+import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -48,7 +51,7 @@ class ContactsViewModelTest {
 
     @Test
     fun `initial state has empty contacts and isLoading false`() = runTest {
-        every { getContacts(any()) } returns flowOf(emptyList())
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
         val vm = viewModel()
         advanceTimeBy(400) // past debounce
 
@@ -62,7 +65,7 @@ class ContactsViewModelTest {
 
     @Test
     fun `onSearchOpen sets isSearchActive true`() {
-        every { getContacts(any()) } returns flowOf(emptyList())
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
         val vm = viewModel()
 
         vm.onSearchOpen()
@@ -72,7 +75,7 @@ class ContactsViewModelTest {
 
     @Test
     fun `onSearchClosed resets isSearchActive and query`() {
-        every { getContacts(any()) } returns flowOf(emptyList())
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
         val vm = viewModel()
 
         vm.onSearchOpen()
@@ -85,7 +88,7 @@ class ContactsViewModelTest {
 
     @Test
     fun `onSearchQueryChanged updates searchQuery in state`() {
-        every { getContacts(any()) } returns flowOf(emptyList())
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
         val vm = viewModel()
 
         vm.onSearchQueryChanged("bob")
@@ -100,8 +103,8 @@ class ContactsViewModelTest {
     @Test
     fun `contacts emitted after debounce`() = runTest {
         val contact = ContactItem(1L, "Alice", mockk<Uri>(), null)
-        every { getContacts("") } returns flowOf(emptyList())
-        every { getContacts("ali") } returns flowOf(listOf(contact))
+        every { getContacts("", any()) } returns flowOf(emptyList())
+        every { getContacts("ali", any()) } returns flowOf(listOf(contact))
         val vm = viewModel()
         advanceTimeBy(400) // settle initial state
 
@@ -114,10 +117,10 @@ class ContactsViewModelTest {
     @Test
     fun `rapid query changes only emit for the last one (debounce)`() = runTest {
         val contact = ContactItem(1L, "Bob", mockk<Uri>(), null)
-        every { getContacts("") } returns flowOf(emptyList())
-        every { getContacts("b") } returns flowOf(emptyList())
-        every { getContacts("bo") } returns flowOf(emptyList())
-        every { getContacts("bob") } returns flowOf(listOf(contact))
+        every { getContacts("", any()) } returns flowOf(emptyList())
+        every { getContacts("b", any()) } returns flowOf(emptyList())
+        every { getContacts("bo", any()) } returns flowOf(emptyList())
+        every { getContacts("bob", any()) } returns flowOf(listOf(contact))
         val vm = viewModel()
         advanceTimeBy(400)
 
@@ -131,8 +134,8 @@ class ContactsViewModelTest {
 
     @Test
     fun `error in getContacts emits emptyList and sets isLoading false`() = runTest {
-        every { getContacts("") } returns flowOf(emptyList())
-        every { getContacts("err") } returns flow { throw RuntimeException("network error") }
+        every { getContacts("", any()) } returns flowOf(emptyList())
+        every { getContacts("err", any()) } returns flow { throw RuntimeException("network error") }
         val vm = viewModel()
         advanceTimeBy(400)
 
@@ -146,9 +149,9 @@ class ContactsViewModelTest {
     @Test
     fun `pipeline survives error and emits results for next query`() = runTest {
         val contact = ContactItem(1L, "Carol", mockk<Uri>(), null)
-        every { getContacts("") } returns flowOf(emptyList())
-        every { getContacts("err") } returns flow { throw RuntimeException("fail") }
-        every { getContacts("car") } returns flowOf(listOf(contact))
+        every { getContacts("", any()) } returns flowOf(emptyList())
+        every { getContacts("err", any()) } returns flow { throw RuntimeException("fail") }
+        every { getContacts("car", any()) } returns flowOf(listOf(contact))
         val vm = viewModel()
         advanceTimeBy(400)
 
@@ -162,4 +165,94 @@ class ContactsViewModelTest {
     }
 
     //endregion
+
+    //region Filter dispatch
+
+    @Test
+    fun `onGroupSelected updates selectedGroupId and currentView`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+        advanceTimeBy(400)
+
+        vm.onGroupSelected(group)
+
+        assertEquals(ContactsView.GROUP_VIEW, vm.uiState.value.currentView)
+        assertEquals(group.groupId, vm.uiState.value.selectedGroupId)
+    }
+
+    @Test
+    fun `onGroupSelected triggers getContacts with ByGroup filter`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+        advanceTimeBy(400)
+
+        vm.onGroupSelected(group)
+        advanceTimeBy(100)
+
+        verify { getContacts("", ContactsFilter.ByGroup(group.groupId)) }
+    }
+
+    @Test
+    fun `onAccountSelected updates selectedAccount and currentView`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+        val account = mockk<com.android.contacts.list.ContactListFilter>()
+        advanceTimeBy(400)
+
+        vm.onAccountSelected(account)
+
+        assertEquals(ContactsView.ACCOUNT_VIEW, vm.uiState.value.currentView)
+        assertEquals(account, vm.uiState.value.selectedAccount)
+    }
+
+    @Test
+    fun `onAccountSelected triggers getContacts with ByAccount filter`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+        val account = mockk<com.android.contacts.list.ContactListFilter>()
+        advanceTimeBy(400)
+
+        vm.onAccountSelected(account)
+        advanceTimeBy(100)
+
+        verify { getContacts("", ContactsFilter.ByAccount(account)) }
+    }
+
+    @Test
+    fun `onViewSelected ALL_CONTACTS resets filter and state`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+        advanceTimeBy(400)
+
+        vm.onGroupSelected(group)
+        advanceTimeBy(100)
+        vm.onViewSelected(ContactsView.ALL_CONTACTS)
+        advanceTimeBy(100)
+
+        assertEquals(ContactsView.ALL_CONTACTS, vm.uiState.value.currentView)
+        assertEquals(-1L, vm.uiState.value.selectedGroupId)
+        assertNull(vm.uiState.value.selectedAccount)
+        verify { getContacts("", ContactsFilter.AllContacts) }
+    }
+
+    @Test
+    fun `search ignores active group filter`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+        advanceTimeBy(400)
+
+        vm.onGroupSelected(group)
+        advanceTimeBy(100)
+        vm.onSearchOpen()
+        vm.onSearchQueryChanged("ali")
+        advanceTimeBy(400)
+
+        verify { getContacts("ali", ContactsFilter.AllContacts) }
+    }
+
+    //endregion
 }
+
+private val group = com.android.contacts.group.GroupListItem(
+    "acctName", "com.google", null, 42L, "Friends", true, 5, false, null,
+)

@@ -5,6 +5,7 @@ import android.net.Uri
 import android.provider.ContactsContract
 import android.util.Log
 import androidx.core.net.toUri
+import com.android.contacts.contacts.domain.ContactsFilter
 import com.android.contacts.contacts.ui.ContactItem
 import com.android.contacts.di.core.IoDispatcher
 import com.android.contacts.list.ContactListAdapter
@@ -16,7 +17,10 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 
 interface ContactsRepository {
-    fun getContacts(query: String = ""): Flow<List<ContactItem>>
+    fun getContacts(
+        query: String = "",
+        filter: ContactsFilter = ContactsFilter.AllContacts,
+    ): Flow<List<ContactItem>>
 }
 
 class ContactsRepositoryImpl @Inject constructor(
@@ -24,21 +28,26 @@ class ContactsRepositoryImpl @Inject constructor(
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ContactsRepository {
 
-    override fun getContacts(query: String): Flow<List<ContactItem>> = flow {
+    override fun getContacts(query: String, filter: ContactsFilter): Flow<List<ContactItem>> = flow {
         val isSearch = query.isNotBlank()
+
+        // Group filtering needs a two-step query; skip when in search mode
+        if (!isSearch && filter is ContactsFilter.ByGroup) {
+            emit(getGroupContacts(filter.groupId))
+            return@flow
+        }
+
         val uri = if (isSearch) {
-            Uri.withAppendedPath(
-                ContactsContract.Contacts.CONTENT_FILTER_URI,
-                Uri.encode(query),
-            )
+            Uri.withAppendedPath(ContactsContract.Contacts.CONTENT_FILTER_URI, Uri.encode(query))
+        } else if (filter is ContactsFilter.ByAccount) {
+            ContactsContract.Contacts.CONTENT_URI.buildUpon()
+                .appendQueryParameter(ContactsContract.RawContacts.ACCOUNT_NAME, filter.filter.accountName)
+                .appendQueryParameter(ContactsContract.RawContacts.ACCOUNT_TYPE, filter.filter.accountType)
+                .build()
         } else {
             ContactsContract.Contacts.CONTENT_URI
         }
-        val projection = if (isSearch) {
-            FILTER_PROJECTION
-        } else {
-            ContactListAdapter.ContactQuery.CONTACT_PROJECTION_PRIMARY
-        }
+        val projection = if (isSearch) FILTER_PROJECTION else ContactListAdapter.ContactQuery.CONTACT_PROJECTION_PRIMARY
 
         val contacts = context.contentResolver.query(
             uri,
@@ -54,13 +63,7 @@ class ContactsRepositoryImpl @Inject constructor(
                     val name = cursor.getString(DISPLAY_NAME_PRIMARY_COLUMN_INDEX) ?: continue
                     val lookupKey = cursor.getString(LOOKUP_KEY_COLUMN_INDEX) ?: continue
                     val photoUri = cursor.getString(PHOTO_THUMBNAIL_URI_COLUMN_INDEX)?.toUri()
-                    val snippet = if (isSearch) {
-                        cursor.getString(
-                            SEARCH_SNIPPET_COLUMN_INDEX
-                        )
-                    } else {
-                        null
-                    }
+                    val snippet = if (isSearch) cursor.getString(SEARCH_SNIPPET_COLUMN_INDEX) else null
                     add(
                         ContactItem(
                             id = id,
@@ -76,6 +79,47 @@ class ContactsRepositoryImpl @Inject constructor(
 
         emit(contacts)
     }.flowOn(ioDispatcher)
+
+    private fun getGroupContacts(groupId: Long): List<ContactItem> {
+        val contactIds: Set<Long> = context.contentResolver.query(
+            ContactsContract.Data.CONTENT_URI,
+            arrayOf(ContactsContract.Data.CONTACT_ID),
+            "${ContactsContract.Data.MIMETYPE} = ? AND ${ContactsContract.CommonDataKinds.GroupMembership.GROUP_ROW_ID} = ?",
+            arrayOf(ContactsContract.CommonDataKinds.GroupMembership.CONTENT_ITEM_TYPE, groupId.toString()),
+            null,
+        )?.use { cursor ->
+            buildSet { while (cursor.moveToNext()) add(cursor.getLong(0)) }
+        } ?: return emptyList()
+
+        if (contactIds.isEmpty()) return emptyList()
+
+        val selection = "${ContactsContract.Contacts._ID} IN (${contactIds.joinToString(",")})"
+        return context.contentResolver.query(
+            ContactsContract.Contacts.CONTENT_URI,
+            ContactListAdapter.ContactQuery.CONTACT_PROJECTION_PRIMARY,
+            selection,
+            null,
+            ContactsContract.Contacts.DISPLAY_NAME_PRIMARY + " ASC",
+        )?.use { cursor ->
+            buildList {
+                while (cursor.moveToNext()) {
+                    val id = cursor.getLong(ID_COLUMN_INDEX)
+                    val name = cursor.getString(DISPLAY_NAME_PRIMARY_COLUMN_INDEX) ?: continue
+                    val lookupKey = cursor.getString(LOOKUP_KEY_COLUMN_INDEX) ?: continue
+                    val photoUri = cursor.getString(PHOTO_THUMBNAIL_URI_COLUMN_INDEX)?.toUri()
+                    add(
+                        ContactItem(
+                            id = id,
+                            displayName = name,
+                            lookupUri = ContactsContract.Contacts.getLookupUri(id, lookupKey),
+                            photoUri = photoUri,
+                            snippet = null,
+                        )
+                    )
+                }
+            }
+        } ?: emptyList()
+    }
 
     companion object {
         private const val ID_COLUMN_INDEX = 0

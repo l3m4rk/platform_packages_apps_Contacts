@@ -58,6 +58,12 @@ fun ContactsScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
+    val allContactsTitle = stringResource(R.string.contactsList)
+    val topBarTitle = when (uiState.currentView) {
+        ContactsView.ALL_CONTACTS -> allContactsTitle
+        ContactsView.GROUP_VIEW -> uiState.groups.find { it.groupId == uiState.selectedGroupId }?.title ?: allContactsTitle
+        ContactsView.ACCOUNT_VIEW -> uiState.selectedAccount?.accountName ?: allContactsTitle
+    }
 
     var searchBarHeightPx by remember { mutableFloatStateOf(0f) }
     var searchBarOffsetPx by remember { mutableFloatStateOf(0f) }
@@ -109,6 +115,7 @@ fun ContactsScreen(
                 ContactsTopBar(
                     isSearchActive = uiState.isSearchActive,
                     searchQuery = uiState.searchQuery,
+                    title = topBarTitle,
                     onSearchQueryChanged = viewModel::onSearchQueryChanged,
                     onSearchOpen = viewModel::onSearchOpen,
                     onSearchClosed = viewModel::onSearchClosed,
@@ -159,6 +166,7 @@ fun ContactsScreen(
             if (!uiState.isSearchActive) {
                 ContactsContent(
                     uiState = uiState,
+                    filterTitle = topBarTitle,
                     onContactClick = onContactClick,
                     onRefresh = { /*later: trigger Google resync via ContentResolver*/ },
                     modifier = Modifier.padding(
@@ -176,6 +184,7 @@ fun ContactsScreen(
 @Composable
 internal fun ContactsContent(
     uiState: ContactsUiState,
+    filterTitle: String,
     onContactClick: (Uri) -> Unit,
     onRefresh: () -> Unit,
     modifier: Modifier,
@@ -192,8 +201,13 @@ internal fun ContactsContent(
             }
         }
         uiState.contacts.isEmpty() -> {
+            val emptyMessage = when (uiState.currentView) {
+                ContactsView.ALL_CONTACTS -> stringResource(R.string.noContacts)
+                ContactsView.GROUP_VIEW -> stringResource(R.string.listFoundAllContactsZero)
+                ContactsView.ACCOUNT_VIEW -> stringResource(R.string.listFoundAllContactsZero)
+            }
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(stringResource(R.string.noContacts))
+                Text(emptyMessage)
             }
         }
         else -> {

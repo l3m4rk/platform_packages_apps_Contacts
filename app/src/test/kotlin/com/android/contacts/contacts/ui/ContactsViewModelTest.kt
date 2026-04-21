@@ -2,6 +2,8 @@ package com.android.contacts.contacts.ui
 
 import android.net.Uri
 import com.android.contacts.contacts.domain.GetContactsUseCase
+import com.android.contacts.contacts.domain.GetDrawerDataUseCase
+import com.android.contacts.contacts.domain.DrawerData
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +27,7 @@ class ContactsViewModelTest {
 
     private val testDispatcher = StandardTestDispatcher()
     private val getContacts: GetContactsUseCase = mockk()
+    private val getDrawerData: GetDrawerDataUseCase = mockk()
 
     @Before
     fun setUp() {
@@ -36,7 +39,10 @@ class ContactsViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun viewModel() = ContactsViewModel(getContacts)
+    private fun viewModel(): ContactsViewModel {
+        every { getDrawerData() } returns flowOf(DrawerData(emptyList(), emptyList(), false))
+        return ContactsViewModel(getContacts, getDrawerData)
+    }
 
     //region Initial state
 

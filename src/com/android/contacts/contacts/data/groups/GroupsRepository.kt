@@ -36,7 +36,7 @@ internal class GroupsRepositoryImpl @Inject constructor(
                 }
             }
         } ?: emptyList()
-        emit(groups)
+        emit(groups.filter { !GroupUtil.isEmptyFFCGroup(it) })
     }.flowOn(ioDispatcher)
 
     companion object {

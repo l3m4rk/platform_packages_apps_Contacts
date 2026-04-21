@@ -99,4 +99,35 @@ class GroupsRepositoryTest {
         assertTrue(result[0].isFirstGroupInAccount)
         assertTrue(result[1].isFirstGroupInAccount)
     }
+
+    //region FFC filtering
+
+    @Test
+    fun `empty FFC group is filtered out`() = runTest {
+        // readOnly=1, systemId="Friends", memberCount=0 → should be removed
+        every { resolver.query(any(), any(), any(), any(), any()) } returns makeCursor(
+            arrayOf("acct", "com.google", null, 1L, "Friends", 0, 1, "Friends"),
+        )
+        assertEquals(emptyList<GroupListItem>(), repo.getGroups().first())
+    }
+
+    @Test
+    fun `non-empty FFC group is kept`() = runTest {
+        // readOnly=1, systemId="Friends", memberCount=5 → should be kept
+        every { resolver.query(any(), any(), any(), any(), any()) } returns makeCursor(
+            arrayOf("acct", "com.google", null, 1L, "Friends", 5, 1, "Friends"),
+        )
+        assertEquals(1, repo.getGroups().first().size)
+    }
+
+    @Test
+    fun `user group with FFC-like title but no systemId is kept`() = runTest {
+        // systemId=null → not an FFC group, keep it regardless of memberCount
+        every { resolver.query(any(), any(), any(), any(), any()) } returns makeCursor(
+            arrayOf("acct", "com.google", null, 1L, "Friends", 0, 0, null),
+        )
+        assertEquals(1, repo.getGroups().first().size)
+    }
+
+    //endregion
 }

@@ -73,7 +73,7 @@ fun ContactsDrawerContent(
                         icon = {
                             Icon(Icons.Default.AccountBox, contentDescription = filter.accountName)
                         },
-                        label = {},
+                        label = { Text(filter.accountName ?: "") },
                         selected = uiState.currentView == ContactsView.ACCOUNT_VIEW &&
                             uiState.selectedAccount == filter,
                         onClick = { onAccountClick(filter) },

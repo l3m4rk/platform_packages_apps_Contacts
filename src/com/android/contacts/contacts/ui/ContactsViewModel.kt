@@ -3,6 +3,7 @@ package com.android.contacts.contacts.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.android.contacts.contacts.domain.GetContactsUseCase
+import com.android.contacts.contacts.domain.GetDrawerDataUseCase
 import com.android.contacts.group.GroupListItem
 import com.android.contacts.list.ContactListFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -22,6 +23,7 @@ import javax.inject.Inject
 @HiltViewModel
 class ContactsViewModel @Inject constructor(
     private val getContacts: GetContactsUseCase,
+    private val getDrawerData: GetDrawerDataUseCase,
 ) : ViewModel() {
 
     private val searchQueryFlow = MutableStateFlow("")
@@ -31,12 +33,23 @@ class ContactsViewModel @Inject constructor(
     init {
         viewModelScope.launch {
             searchQueryFlow.debounce(SEARCH_DEBOUNCE).flatMapLatest { query ->
-                    getContacts(query).catch {
-                        _uiState.update { it.copy(isLoading = false) }
-                        emit(emptyList())
+                getContacts(query).catch {
+                    _uiState.update { it.copy(isLoading = false) }
+                    emit(emptyList())
+                }
+            }.collect { contacts ->
+                _uiState.update { it.copy(contacts = contacts, isLoading = false) }
+            }
+        }
+        viewModelScope.launch {
+            getDrawerData().catch { }.collect { data ->
+                    _uiState.update {
+                        it.copy(
+                            groups = data.groups,
+                            accounts = data.accounts,
+                            hasGroupWritableAccounts = data.hasGroupWritableAccounts,
+                        )
                     }
-                }.collect { contacts ->
-                    _uiState.update { it.copy(contacts = contacts, isLoading = false) }
                 }
         }
     }

@@ -30,15 +30,17 @@ internal class AccountsRepositoryImpl @Inject constructor(
         )
         emit(
             AccountData(
-                accounts = accounts.map { accountInfo ->
-                    val account = accountInfo.account
-                    ContactListFilter.createAccountFilter(
-                        account.type,
-                        account.name,
-                        account.dataSet,
-                        accountInfo.type.getDisplayIcon(context),
-                    )
-                },
+                accounts = accounts
+                    .filter { !it.account.name.isNullOrBlank() }
+                    .map { accountInfo ->
+                        val account = accountInfo.account
+                        ContactListFilter.createAccountFilter(
+                            account.type,
+                            account.name,
+                            account.dataSet,
+                            accountInfo.type.getDisplayIcon(context),
+                        )
+                    },
                 hasGroupWritableAccounts = accounts.any { it.type.isGroupMembershipEditable },
             ),
         )

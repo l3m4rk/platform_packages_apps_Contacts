@@ -1,7 +1,7 @@
 package com.android.contacts.contacts.ui
 
+import com.android.contacts.contacts.data.accounts.AccountDisplayItem
 import com.android.contacts.group.GroupListItem
-import com.android.contacts.list.ContactListFilter
 
 data class ContactsUiState(
     val currentView: ContactsView = ContactsView.ALL_CONTACTS,
@@ -9,11 +9,11 @@ data class ContactsUiState(
     val searchQuery: String = "",
     val isFabVisible: Boolean = true,
     val groups: List<GroupListItem> = emptyList(),
-    val accounts: List<ContactListFilter> = emptyList(),
+    val accounts: List<AccountDisplayItem> = emptyList(),
     val providerStatus: Int? = null,
     val hasGroupWritableAccounts: Boolean = false,
     val selectedGroupId: Long = -1L,
-    val selectedAccount: ContactListFilter? = null,
+    val selectedAccount: AccountDisplayItem? = null,
     val contacts: List<ContactItem> = emptyList(),
     val isLoading: Boolean = false,
 )

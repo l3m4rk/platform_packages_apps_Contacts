@@ -1,10 +1,11 @@
 package com.android.contacts.contacts.ui
 
 import android.net.Uri
+import com.android.contacts.contacts.data.accounts.AccountDisplayItem
 import com.android.contacts.contacts.domain.ContactsFilter
+import com.android.contacts.contacts.domain.DrawerData
 import com.android.contacts.contacts.domain.GetContactsUseCase
 import com.android.contacts.contacts.domain.GetDrawerDataUseCase
-import com.android.contacts.contacts.domain.DrawerData
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -196,7 +197,7 @@ class ContactsViewModelTest {
     fun `onAccountSelected updates selectedAccount and currentView`() = runTest {
         every { getContacts(any(), any()) } returns flowOf(emptyList())
         val vm = viewModel()
-        val account = mockk<com.android.contacts.list.ContactListFilter>()
+        val account = AccountDisplayItem(mockk(), "Test Account", null)
         advanceTimeBy(400)
 
         vm.onAccountSelected(account)
@@ -209,13 +210,14 @@ class ContactsViewModelTest {
     fun `onAccountSelected triggers getContacts with ByAccount filter`() = runTest {
         every { getContacts(any(), any()) } returns flowOf(emptyList())
         val vm = viewModel()
-        val account = mockk<com.android.contacts.list.ContactListFilter>()
+        val filter = mockk<com.android.contacts.list.ContactListFilter>()
+        val account = AccountDisplayItem(filter, "Test Account", null)
         advanceTimeBy(400)
 
         vm.onAccountSelected(account)
         advanceTimeBy(100)
 
-        verify { getContacts("", ContactsFilter.ByAccount(account)) }
+        verify { getContacts("", ContactsFilter.ByAccount(filter)) }
     }
 
     @Test

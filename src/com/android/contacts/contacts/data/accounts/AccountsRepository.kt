@@ -34,11 +34,15 @@ internal class AccountsRepositoryImpl @Inject constructor(
                     .filter { !it.account.name.isNullOrBlank() }
                     .map { accountInfo ->
                         val account = accountInfo.account
-                        ContactListFilter.createAccountFilter(
-                            account.type,
-                            account.name,
-                            account.dataSet,
-                            accountInfo.type.getDisplayIcon(context),
+                        AccountDisplayItem(
+                            filter = ContactListFilter.createAccountFilter(
+                                account.type,
+                                account.name,
+                                account.dataSet,
+                                accountInfo.type.getDisplayIcon(context),
+                            ),
+                            displayName = accountInfo.getNameLabel().toString(),
+                            icon = accountInfo.getIcon(),
                         )
                     },
                 hasGroupWritableAccounts = accounts.any { it.type.isGroupMembershipEditable },

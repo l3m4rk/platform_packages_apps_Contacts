@@ -1,6 +1,7 @@
 package com.android.contacts.contacts.domain
 
 import com.android.contacts.contacts.data.accounts.AccountData
+import com.android.contacts.contacts.data.accounts.AccountDisplayItem
 import com.android.contacts.contacts.data.accounts.AccountsRepository
 import com.android.contacts.contacts.data.groups.GroupsRepository
 import com.android.contacts.group.GroupListItem
@@ -33,6 +34,7 @@ class GetDrawerDataUseCaseTest {
         null,
     )
     private val filter = mockk<ContactListFilter>()
+    private val accountItem = AccountDisplayItem(filter, "Test Account", null)
 
     //region combines groups and accounts
 
@@ -50,10 +52,10 @@ class GetDrawerDataUseCaseTest {
     fun `accounts are passed through to DrawerData`() = runTest {
         every { groupsRepo.getGroups() } returns flowOf(emptyList())
         every { accountsRepo.getAccountData() } returns flowOf(
-            AccountData(listOf(filter), hasGroupWritableAccounts = false)
+            AccountData(listOf(accountItem), hasGroupWritableAccounts = false)
         )
 
-        assertEquals(listOf(filter), useCase().first().accounts)
+        assertEquals(listOf(accountItem), useCase().first().accounts)
     }
 
     @Test

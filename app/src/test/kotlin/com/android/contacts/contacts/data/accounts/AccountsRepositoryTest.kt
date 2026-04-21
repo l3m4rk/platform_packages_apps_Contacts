@@ -10,6 +10,7 @@ import com.android.contacts.model.account.AccountWithDataSet
 import com.google.common.util.concurrent.Futures
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
@@ -18,7 +19,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
@@ -36,6 +36,7 @@ class AccountsRepositoryTest {
         type: String,
         dataSet: String? = null,
         isGroupMembershipEditable: Boolean = false,
+        displayName: String = name,
     ): AccountInfo {
         val accountType = mockk<AccountType> {
             every { getDisplayIcon(context) } returns mockk<Drawable>()
@@ -45,6 +46,8 @@ class AccountsRepositoryTest {
         return mockk<AccountInfo> {
             every { getAccount() } returns account
             every { getType() } returns accountType
+            every { getNameLabel() } returns displayName
+            every { getIcon() } returns null
         }
     }
 
@@ -65,7 +68,7 @@ class AccountsRepositoryTest {
     }
 
     @Test
-    fun `single account maps to ContactListFilter correctly`() = runTest {
+    fun `single account maps filter fields correctly`() = runTest {
         val info = makeAccountInfo("john@gmail.com", "com.google")
         every { accountTypeManager.filterAccountsAsync(any()) } returns
             Futures.immediateFuture(listOf(info))
@@ -73,9 +76,20 @@ class AccountsRepositoryTest {
         val result = repo.getAccountData().first()
 
         assertEquals(1, result.accounts.size)
-        assertEquals("john@gmail.com", result.accounts[0].accountName)
-        assertEquals("com.google", result.accounts[0].accountType)
-        assertEquals(ContactListFilter.FILTER_TYPE_ACCOUNT, result.accounts[0].filterType)
+        assertEquals("john@gmail.com", result.accounts[0].filter.accountName)
+        assertEquals("com.google", result.accounts[0].filter.accountType)
+        assertEquals(ContactListFilter.FILTER_TYPE_ACCOUNT, result.accounts[0].filter.filterType)
+    }
+
+    @Test
+    fun `single account display name comes from AccountInfo getNameLabel`() = runTest {
+        val info = makeAccountInfo("john@gmail.com", "com.google", displayName = "John's Google")
+        every { accountTypeManager.filterAccountsAsync(any()) } returns
+            Futures.immediateFuture(listOf(info))
+
+        val result = repo.getAccountData().first()
+
+        assertEquals("John's Google", result.accounts[0].displayName)
     }
 
     @Test
@@ -86,7 +100,7 @@ class AccountsRepositoryTest {
 
         val result = repo.getAccountData().first()
 
-        assertEquals("myDataSet", result.accounts[0].dataSet)
+        assertEquals("myDataSet", result.accounts[0].filter.dataSet)
     }
 
     @Test
@@ -101,8 +115,8 @@ class AccountsRepositoryTest {
         val result = repo.getAccountData().first()
 
         assertEquals(2, result.accounts.size)
-        assertEquals("a@gmail.com", result.accounts[0].accountName)
-        assertEquals("b@exchange.com", result.accounts[1].accountName)
+        assertEquals("a@gmail.com", result.accounts[0].filter.accountName)
+        assertEquals("b@exchange.com", result.accounts[1].filter.accountName)
     }
 
     //endregion

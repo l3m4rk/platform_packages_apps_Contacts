@@ -62,7 +62,7 @@ fun ContactsScreen(
     val topBarTitle = when (uiState.currentView) {
         ContactsView.ALL_CONTACTS -> allContactsTitle
         ContactsView.GROUP_VIEW -> uiState.groups.find { it.groupId == uiState.selectedGroupId }?.title ?: allContactsTitle
-        ContactsView.ACCOUNT_VIEW -> uiState.selectedAccount?.accountName ?: allContactsTitle
+        ContactsView.ACCOUNT_VIEW -> uiState.selectedAccount?.displayName ?: allContactsTitle
     }
 
     var searchBarHeightPx by remember { mutableFloatStateOf(0f) }
@@ -101,8 +101,8 @@ fun ContactsScreen(
                 onCreateLabelClick = {
                     // TODO: navigate to create group
                 },
-                onAccountClick = { filter ->
-                    viewModel.onAccountSelected(filter)
+                onAccountClick = { item ->
+                    viewModel.onAccountSelected(item)
                     scope.launch { drawerState.close() }
                 },
                 onSettingsClick = onSettingsClick,

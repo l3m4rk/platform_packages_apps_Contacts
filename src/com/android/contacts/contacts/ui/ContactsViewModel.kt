@@ -2,11 +2,11 @@ package com.android.contacts.contacts.ui
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.android.contacts.contacts.data.accounts.AccountDisplayItem
 import com.android.contacts.contacts.domain.ContactsFilter
 import com.android.contacts.contacts.domain.GetContactsUseCase
 import com.android.contacts.contacts.domain.GetDrawerDataUseCase
 import com.android.contacts.group.GroupListItem
-import com.android.contacts.list.ContactListFilter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
@@ -91,12 +91,12 @@ class ContactsViewModel @Inject constructor(
         }
     }
 
-    fun onAccountSelected(filter: ContactListFilter) {
-        contactsFilterFlow.value = ContactsFilter.ByAccount(filter)
+    fun onAccountSelected(item: AccountDisplayItem) {
+        contactsFilterFlow.value = ContactsFilter.ByAccount(item.filter)
         _uiState.update {
             it.copy(
                 currentView = ContactsView.ACCOUNT_VIEW,
-                selectedAccount = filter,
+                selectedAccount = item,
                 selectedGroupId = -1L,
             )
         }

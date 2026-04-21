@@ -205,6 +205,7 @@ fun ContactsScreen(
                                                 text = { Text(stringResource(R.string.menu_deleteGroup)) },
                                                 onClick = {
                                                     groupMenuExpanded = false
+                                                    viewModel.onViewSelected(ContactsView.ALL_CONTACTS)
                                                     onDeleteGroup(group)
                                                 },
                                             )

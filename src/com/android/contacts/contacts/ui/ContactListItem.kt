@@ -1,7 +1,8 @@
 package com.android.contacts.contacts.ui
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,6 +35,7 @@ import coil3.request.crossfade
 import com.android.contacts.ui.core.AppTheme
 import com.android.contacts.util.SearchUtil
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun ContactListItem(
     contact: ContactItem,
@@ -41,6 +43,7 @@ internal fun ContactListItem(
     searchQuery: String = "",
     isSelected: Boolean = false,
     onSelectionToggle: (() -> Unit)? = null,
+    onLongClick: (() -> Unit)? = null,
 ) {
     val highlightColor = MaterialTheme.colorScheme.primary
     val headlineText = remember(contact.displayName, searchQuery) {
@@ -79,7 +82,10 @@ internal fun ContactListItem(
         trailingContent = if (onSelectionToggle != null) {
             { Checkbox(checked = isSelected, onCheckedChange = { onSelectionToggle() }) }
         } else null,
-        modifier = Modifier.clickable(onClick = onSelectionToggle ?: onClick),
+        modifier = Modifier.combinedClickable(
+            onClick = onSelectionToggle ?: onClick,
+            onLongClick = onLongClick,
+        ),
     )
 }
 

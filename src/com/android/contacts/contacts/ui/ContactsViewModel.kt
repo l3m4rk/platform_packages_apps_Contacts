@@ -146,6 +146,10 @@ class ContactsViewModel @Inject constructor(
         _uiState.update { it.copy(isGroupEditMode = true) }
     }
 
+    fun onContactLongClick(contactId: Long) {
+        _uiState.update { it.copy(isGroupEditMode = true, selectedContactIds = setOf(contactId)) }
+    }
+
     fun onExitGroupEditMode() {
         _uiState.update { it.copy(isGroupEditMode = false, selectedContactIds = emptySet()) }
     }

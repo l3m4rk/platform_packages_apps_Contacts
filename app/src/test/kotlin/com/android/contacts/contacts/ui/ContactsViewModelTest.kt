@@ -467,6 +467,17 @@ class ContactsViewModelTest {
     }
 
     @Test
+    fun `onContactLongClick enters edit mode and selects the long-pressed contact`() {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onContactLongClick(42L)
+
+        assertTrue(vm.uiState.value.isGroupEditMode)
+        assertEquals(setOf(42L), vm.uiState.value.selectedContactIds)
+    }
+
+    @Test
     fun `onExitGroupEditMode clears isGroupEditMode and selectedContactIds`() {
         every { getContacts(any(), any()) } returns flowOf(emptyList())
         val vm = viewModel()

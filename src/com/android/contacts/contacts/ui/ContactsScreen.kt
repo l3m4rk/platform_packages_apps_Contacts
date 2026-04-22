@@ -304,6 +304,7 @@ fun ContactsScreen(
                         isRefreshEnabled = uiState.currentView != ContactsView.GROUP_VIEW &&
                             !uiState.isSearchActive,
                         onSelectionToggle = viewModel::onToggleContactSelection,
+                        onContactLongClick = viewModel::onContactLongClick,
                         modifier = Modifier.weight(1f),
                         onAddContacts = selectedGroup?.let { group -> { onAddMember(group) } },
                     )
@@ -322,6 +323,7 @@ internal fun ContactsContent(
     onRefresh: () -> Unit,
     isRefreshEnabled: Boolean = true,
     onSelectionToggle: (Long) -> Unit = {},
+    onContactLongClick: (Long) -> Unit = {},
     modifier: Modifier,
     onAddContacts: (() -> Unit)? = null,
 ) {
@@ -397,6 +399,7 @@ internal fun ContactsContent(
                         onContactClick = onContactClick,
                         selectedContactIds = uiState.selectedContactIds,
                         onSelectionToggle = if (uiState.isGroupEditMode) onSelectionToggle else null,
+                        onContactLongClick = if (!uiState.isGroupEditMode) onContactLongClick else null,
                     )
                 }
             }
@@ -455,6 +458,7 @@ private fun ContactList(
     onContactClick: (Uri) -> Unit,
     selectedContactIds: Set<Long> = emptySet(),
     onSelectionToggle: ((Long) -> Unit)? = null,
+    onContactLongClick: ((Long) -> Unit)? = null,
 ) {
     LazyColumn(
         state = listState,
@@ -468,6 +472,7 @@ private fun ContactList(
                 onClick = { onContactClick(contact.lookupUri) },
                 isSelected = contact.id in selectedContactIds,
                 onSelectionToggle = onSelectionToggle?.let { toggle -> { toggle(contact.id) } },
+                onLongClick = onContactLongClick?.let { handler -> { handler(contact.id) } },
             )
         }
     }

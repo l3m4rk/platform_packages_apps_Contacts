@@ -6,12 +6,16 @@ import com.android.contacts.contacts.data.accounts.AccountDisplayItem
 import com.android.contacts.contacts.domain.ContactsFilter
 import com.android.contacts.contacts.domain.GetContactsUseCase
 import com.android.contacts.contacts.domain.GetDrawerDataUseCase
+import com.android.contacts.contacts.domain.GetGroupContactDataUseCase
 import com.android.contacts.group.GroupListItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.combine
@@ -26,12 +30,16 @@ import javax.inject.Inject
 class ContactsViewModel @Inject constructor(
     private val getContacts: GetContactsUseCase,
     private val getDrawerData: GetDrawerDataUseCase,
+    private val getGroupContactData: GetGroupContactDataUseCase,
 ) : ViewModel() {
 
     private val searchQueryFlow = MutableStateFlow("")
     private val contactsFilterFlow = MutableStateFlow<ContactsFilter>(ContactsFilter.AllContacts)
     private val _uiState = MutableStateFlow(ContactsUiState())
     val uiState: StateFlow<ContactsUiState> = _uiState.asStateFlow()
+
+    private val _events = MutableSharedFlow<ContactsEvent>(extraBufferCapacity = 2)
+    val events: SharedFlow<ContactsEvent> = _events.asSharedFlow()
 
     init {
         viewModelScope.launch {
@@ -99,6 +107,31 @@ class ContactsViewModel @Inject constructor(
                 selectedAccount = item,
                 selectedGroupId = -1L,
             )
+        }
+    }
+
+    fun onSendToGroup(scheme: String) {
+        viewModelScope.launch {
+            val contactIds = _uiState.value.contacts.map { it.id }.toLongArray()
+            if (contactIds.isEmpty()) return@launch
+            val result = getGroupContactData(contactIds, scheme)
+            when {
+                result.itemList.isEmpty() -> {
+                    _events.emit(ContactsEvent.ShowNoContactDataToast(scheme))
+                }
+                !result.allHaveDefaults -> {
+                    // Picker is opened before any missing-data toast (matches old flow)
+                    _events.emit(ContactsEvent.OpenGroupPicker(contactIds, result.defaultSelectionIds, scheme))
+                }
+                else -> {
+                    // All contacts with data have a default — send directly.
+                    // Show a warning first if some contacts had no data at all.
+                    if (result.hasMissingContacts) {
+                        _events.emit(ContactsEvent.ShowNoContactDataToast(scheme))
+                    }
+                    _events.emit(ContactsEvent.SendToGroup(result.itemList.joinToString(","), scheme))
+                }
+            }
         }
     }
 

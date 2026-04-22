@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.net.Uri
 import android.os.Bundle
 import android.provider.ContactsContract.Groups
 import android.provider.ContactsContract.Intents
@@ -12,15 +13,21 @@ import android.view.View
 import android.widget.Toast
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.localbroadcastmanager.content.LocalBroadcastManager
 import com.android.contacts.ContactSaveService
 import com.android.contacts.ContactsUtils
 import com.android.contacts.activities.ContactSelectionActivity
 import com.android.contacts.R
 import com.android.contacts.activities.RequestPermissionsActivity
+import com.android.contacts.contacts.ui.ContactsEvent
 import com.android.contacts.contacts.ui.ContactsScreen
+import com.android.contacts.contacts.ui.ContactsViewModel
 import com.android.contacts.editor.ContactEditorFragment
 import com.android.contacts.editor.SelectAccountDialogFragment
 import com.android.contacts.group.GroupListItem
@@ -39,6 +46,7 @@ import com.android.contacts.util.ImplicitIntentsUtil
 import com.google.android.material.snackbar.Snackbar
 import com.google.common.util.concurrent.Futures
 import dagger.hilt.android.AndroidEntryPoint
+import kotlinx.coroutines.launch
 
 private const val TAG_SELECT_ACCOUNT_DIALOG = "selectAccountDialog"
 private const val TAG_GROUP_NAME_EDIT_DIALOG = "groupNameEditDialog"
@@ -47,6 +55,7 @@ private const val KEY_NEW_GROUP_ACCOUNT = "newGroupAccount"
 @AndroidEntryPoint
 class PeopleActivity : AppCompatActivity(), SelectAccountDialogFragment.Listener {
 
+    private val viewModel: ContactsViewModel by viewModels()
     private var newGroupAccount: AccountWithDataSet? = null
 
     // Holds the groupId for the pending "add member" result so we can update the right group.
@@ -72,6 +81,12 @@ class PeopleActivity : AppCompatActivity(), SelectAccountDialogFragment.Listener
 
         RequestPermissionsActivity.startPermissionActivityIfNeeded(this)
 
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.events.collect { event -> handleEvent(event) }
+            }
+        }
+
         setContent {
             AppTheme {
                 ContactsScreen(
@@ -85,8 +100,6 @@ class PeopleActivity : AppCompatActivity(), SelectAccountDialogFragment.Listener
                     onAddMember = { group -> addMemberToGroup(group) },
                     onRenameGroup = { group -> renameGroup(group) },
                     onDeleteGroup = { group -> deleteGroup(group) },
-                    onSendEmail = { group -> sendToGroup(group, ContactsUtils.SCHEME_MAILTO) },
-                    onSendMessage = { group -> sendToGroup(group, ContactsUtils.SCHEME_SMSTO) },
                     onRemoveContacts = { /* TODO: group edit mode */ },
                     onSettingsClick = { startActivity(createPreferenceIntent()) },
                 )
@@ -203,25 +216,45 @@ class PeopleActivity : AppCompatActivity(), SelectAccountDialogFragment.Listener
         startActivityForResult(intent, GroupUtil.RESULT_GROUP_ADD_MEMBER)
     }
 
-    private fun sendToGroup(group: GroupListItem, scheme: String) {
-        val title = if (scheme == ContactsUtils.SCHEME_MAILTO)
-            getString(R.string.menu_sendEmailOption)
-        else
-            getString(R.string.menu_sendMessageOption)
-
-        // Query contact IDs for this group on background thread, then launch picker
-        // For now launch picker with no pre-selection
-        val pickIntent = GroupUtil.createSendToSelectionPickerIntent(
-            this,
-            LongArray(0),
-            LongArray(0),
-            scheme,
-            title,
-        )
-        startActivity(pickIntent)
-    }
-
     // endregion
+
+    private fun handleEvent(event: ContactsEvent) {
+        when (event) {
+            is ContactsEvent.SendToGroup -> {
+                val title = if (event.scheme == ContactsUtils.SCHEME_MAILTO)
+                    getString(R.string.menu_sendEmailOption)
+                else
+                    getString(R.string.menu_sendMessageOption)
+                val intent = Intent(
+                    Intent.ACTION_SENDTO,
+                    Uri.fromParts(event.scheme, event.addresses, null),
+                )
+                startActivity(Intent.createChooser(intent, title))
+            }
+            is ContactsEvent.OpenGroupPicker -> {
+                val title = if (event.scheme == ContactsUtils.SCHEME_MAILTO)
+                    getString(R.string.menu_sendEmailOption)
+                else
+                    getString(R.string.menu_sendMessageOption)
+                startActivity(
+                    GroupUtil.createSendToSelectionPickerIntent(
+                        this,
+                        event.contactIds,
+                        event.defaultSelectionIds,
+                        event.scheme,
+                        title,
+                    )
+                )
+            }
+            is ContactsEvent.ShowNoContactDataToast -> {
+                val msgRes = if (event.scheme == ContactsUtils.SCHEME_MAILTO)
+                    R.string.groupSomeContactsNoEmailsToast
+                else
+                    R.string.groupSomeContactsNoPhonesToast
+                Toast.makeText(this, msgRes, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
 
     private fun createContact() {
         val filter = AccountFilterUtil.createContactsFilter(this)

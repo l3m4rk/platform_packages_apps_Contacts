@@ -1,24 +1,29 @@
 package com.android.contacts.contacts.ui
 
 import android.net.Uri
+import app.cash.turbine.test
+import com.android.contacts.ContactsUtils
 import com.android.contacts.contacts.data.accounts.AccountDisplayItem
 import com.android.contacts.contacts.domain.ContactsFilter
 import com.android.contacts.contacts.domain.DrawerData
 import com.android.contacts.contacts.domain.GetContactsUseCase
 import com.android.contacts.contacts.domain.GetDrawerDataUseCase
+import com.android.contacts.contacts.domain.GetGroupContactDataUseCase
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
-import io.mockk.verify
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -32,6 +37,7 @@ class ContactsViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private val getContacts: GetContactsUseCase = mockk()
     private val getDrawerData: GetDrawerDataUseCase = mockk()
+    private val getGroupContactData: GetGroupContactDataUseCase = mockk()
 
     @Before
     fun setUp() {
@@ -45,7 +51,7 @@ class ContactsViewModelTest {
 
     private fun viewModel(): ContactsViewModel {
         every { getDrawerData() } returns flowOf(DrawerData(emptyList(), emptyList(), false))
-        return ContactsViewModel(getContacts, getDrawerData)
+        return ContactsViewModel(getContacts, getDrawerData, getGroupContactData)
     }
 
     //region Initial state
@@ -253,8 +259,115 @@ class ContactsViewModelTest {
     }
 
     //endregion
+
+    //region onSendToGroup events
+
+    @Test
+    fun `onSendToGroup emits nothing when contacts list is empty`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.events.test {
+            vm.onSendToGroup(ContactsUtils.SCHEME_MAILTO)
+            advanceUntilIdle()
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `onSendToGroup emits ShowNoContactDataToast when no emails found`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(listOf(contact))
+        coEvery { getGroupContactData(any(), any()) } returns noDataResult
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.events.test {
+            vm.onSendToGroup(ContactsUtils.SCHEME_MAILTO)
+            advanceUntilIdle()
+            assertEquals(ContactsEvent.ShowNoContactDataToast(ContactsUtils.SCHEME_MAILTO), awaitItem())
+        }
+    }
+
+    @Test
+    fun `onSendToGroup emits SendToGroup when all contacts have defaults`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(listOf(contact))
+        coEvery { getGroupContactData(any(), any()) } returns allDefaultsResult
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.events.test {
+            vm.onSendToGroup(ContactsUtils.SCHEME_MAILTO)
+            advanceUntilIdle()
+            assertEquals(
+                ContactsEvent.SendToGroup("alice@example.com", ContactsUtils.SCHEME_MAILTO),
+                awaitItem(),
+            )
+        }
+    }
+
+    @Test
+    fun `onSendToGroup emits toast then SendToGroup when some contacts have no data`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(listOf(contact))
+        coEvery { getGroupContactData(any(), any()) } returns allDefaultsMissingResult
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.events.test {
+            vm.onSendToGroup(ContactsUtils.SCHEME_MAILTO)
+            advanceUntilIdle()
+            assertEquals(ContactsEvent.ShowNoContactDataToast(ContactsUtils.SCHEME_MAILTO), awaitItem())
+            assertEquals(
+                ContactsEvent.SendToGroup("alice@example.com", ContactsUtils.SCHEME_MAILTO),
+                awaitItem(),
+            )
+        }
+    }
+
+    @Test
+    fun `onSendToGroup emits OpenGroupPicker when contacts need disambiguation`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(listOf(contact))
+        coEvery { getGroupContactData(any(), any()) } returns needsPickerResult
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.events.test {
+            vm.onSendToGroup(ContactsUtils.SCHEME_MAILTO)
+            advanceUntilIdle()
+            val event = awaitItem() as ContactsEvent.OpenGroupPicker
+            assertEquals(ContactsUtils.SCHEME_MAILTO, event.scheme)
+        }
+    }
+
+    //endregion
 }
 
+private val contact = ContactItem(1L, "Alice", mockk<Uri>(), null)
 private val group = com.android.contacts.group.GroupListItem(
     "acctName", "com.google", null, 42L, "Friends", true, 5, false, null,
+)
+
+private val noDataResult = GetGroupContactDataUseCase.Result(
+    itemList = emptyList(),
+    defaultSelectionIds = LongArray(0),
+    allHaveDefaults = false,
+    hasMissingContacts = true,
+)
+private val allDefaultsResult = GetGroupContactDataUseCase.Result(
+    itemList = listOf("alice@example.com"),
+    defaultSelectionIds = longArrayOf(10L),
+    allHaveDefaults = true,
+    hasMissingContacts = false,
+)
+private val allDefaultsMissingResult = GetGroupContactDataUseCase.Result(
+    itemList = listOf("alice@example.com"),
+    defaultSelectionIds = longArrayOf(10L),
+    allHaveDefaults = true,
+    hasMissingContacts = true,
+)
+private val needsPickerResult = GetGroupContactDataUseCase.Result(
+    itemList = listOf("alice@example.com", "alice2@example.com"),
+    defaultSelectionIds = LongArray(0),
+    allHaveDefaults = false,
+    hasMissingContacts = false,
 )

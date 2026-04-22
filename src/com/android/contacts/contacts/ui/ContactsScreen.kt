@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.graphics.drawable.toBitmap
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.android.contacts.ContactsUtils
 import com.android.contacts.R
 import com.android.contacts.contacts.data.accounts.AccountDisplayItem
 import com.android.contacts.group.GroupListItem
@@ -79,8 +80,6 @@ fun ContactsScreen(
     onAddMember: (GroupListItem) -> Unit = {},
     onRenameGroup: (GroupListItem) -> Unit = {},
     onDeleteGroup: (GroupListItem) -> Unit = {},
-    onSendEmail: (GroupListItem) -> Unit = {},
-    onSendMessage: (GroupListItem) -> Unit = {},
     onRemoveContacts: (GroupListItem) -> Unit = {},
     onSettingsClick: () -> Unit,
 ) {
@@ -174,14 +173,14 @@ fun ContactsScreen(
                                                 text = { Text(stringResource(R.string.menu_sendEmailOption)) },
                                                 onClick = {
                                                     groupMenuExpanded = false
-                                                    onSendEmail(group)
+                                                    viewModel.onSendToGroup(ContactsUtils.SCHEME_MAILTO)
                                                 },
                                             )
                                             DropdownMenuItem(
                                                 text = { Text(stringResource(R.string.menu_sendMessageOption)) },
                                                 onClick = {
                                                     groupMenuExpanded = false
-                                                    onSendMessage(group)
+                                                    viewModel.onSendToGroup(ContactsUtils.SCHEME_SMSTO)
                                                 },
                                             )
                                             DropdownMenuItem(
@@ -191,9 +190,9 @@ fun ContactsScreen(
                                                     onRemoveContacts(group)
                                                 },
                                             )
-                                            HorizontalDivider()
                                         }
                                         if (!group.isReadOnly) {
+                                            HorizontalDivider()
                                             DropdownMenuItem(
                                                 text = { Text(stringResource(R.string.menu_renameGroup)) },
                                                 onClick = {

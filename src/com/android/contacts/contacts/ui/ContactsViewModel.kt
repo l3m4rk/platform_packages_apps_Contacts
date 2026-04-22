@@ -7,6 +7,9 @@ import com.android.contacts.contacts.domain.ContactsFilter
 import com.android.contacts.contacts.domain.GetContactsUseCase
 import com.android.contacts.contacts.domain.GetDrawerDataUseCase
 import com.android.contacts.contacts.domain.GetGroupContactDataUseCase
+import com.android.contacts.contacts.domain.TriggerContactsSyncUseCase
+import com.android.contacts.contacts.domain.TriggerContactsSyncUseCase.Result.NoNetwork
+import com.android.contacts.contacts.domain.TriggerContactsSyncUseCase.Result.SyncStarted
 import com.android.contacts.group.GroupListItem
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -22,7 +25,10 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import javax.inject.Inject
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -31,6 +37,7 @@ class ContactsViewModel @Inject constructor(
     private val getContacts: GetContactsUseCase,
     private val getDrawerData: GetDrawerDataUseCase,
     private val getGroupContactData: GetGroupContactDataUseCase,
+    private val triggerContactsSync: TriggerContactsSyncUseCase,
 ) : ViewModel() {
 
     private val searchQueryFlow = MutableStateFlow("")
@@ -135,7 +142,31 @@ class ContactsViewModel @Inject constructor(
         }
     }
 
+    fun onRefresh() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshing = true) }
+            when (val result = triggerContactsSync()) {
+                NoNetwork -> {
+                    _events.emit(ContactsEvent.ShowConnectionError)
+                    _uiState.update { it.copy(isRefreshing = false) }
+                }
+                is SyncStarted -> {
+                    // Wait for sync to start (grace period) then watch for completion.
+                    // Without the delay, the initial syncActive emission can be false
+                    // before ContentResolver has registered the sync as active.
+                    delay(SYNC_START_GRACE_MS)
+                    withTimeoutOrNull(REFRESH_TIMEOUT_MS) {
+                        result.syncActive.first { !it }
+                    }
+                    _uiState.update { it.copy(isRefreshing = false) }
+                }
+            }
+        }
+    }
+
     companion object {
         private const val SEARCH_DEBOUNCE = 300L
+        private const val SYNC_START_GRACE_MS = 500L
+        private const val REFRESH_TIMEOUT_MS = 2_000L
     }
 }

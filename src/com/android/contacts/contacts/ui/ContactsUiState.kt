@@ -15,6 +15,7 @@ data class ContactsUiState(
     val selectedAccount: AccountDisplayItem? = null,
     val contacts: List<ContactItem> = emptyList(),
     val isLoading: Boolean = false,
+    val isRefreshing: Boolean = false,
 )
 
 val ContactsUiState.isFabVisible: Boolean

@@ -13,4 +13,7 @@ sealed class ContactsEvent {
 
     /** No email/phone data found for the group. */
     data class ShowNoContactDataToast(val scheme: String) : ContactsEvent()
+
+    /** Network unavailable when user triggered pull-to-refresh. */
+    data object ShowConnectionError : ContactsEvent()
 }

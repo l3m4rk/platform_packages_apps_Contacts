@@ -15,7 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AccountBox
@@ -25,14 +24,17 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -286,7 +288,9 @@ fun ContactsScreen(
                         uiState = uiState,
                         filterTitle = topBarTitle,
                         onContactClick = onContactClick,
-                        onRefresh = { /*later: trigger Google resync via ContentResolver*/ },
+                        onRefresh = viewModel::onRefresh,
+                        isRefreshEnabled = uiState.currentView != ContactsView.GROUP_VIEW &&
+                            !uiState.isSearchActive,
                         modifier = Modifier.weight(1f),
                         onAddContacts = selectedGroup?.let { group -> { onAddMember(group) } },
                     )
@@ -296,12 +300,14 @@ fun ContactsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ContactsContent(
     uiState: ContactsUiState,
     filterTitle: String,
     onContactClick: (Uri) -> Unit,
     onRefresh: () -> Unit,
+    isRefreshEnabled: Boolean = true,
     modifier: Modifier,
     onAddContacts: (() -> Unit)? = null,
 ) {
@@ -357,19 +363,17 @@ internal fun ContactsContent(
         }
         else -> {
             val listState = rememberLazyListState()
-            Box(modifier = modifier) {
-                LazyColumn(
-                    state = listState,
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .scrollbar(listState),
+            if (isRefreshEnabled) {
+                PullToRefreshBox(
+                    isRefreshing = uiState.isRefreshing,
+                    onRefresh = onRefresh,
+                    modifier = modifier,
                 ) {
-                    items(uiState.contacts, key = { it.id }) { contact ->
-                        ContactListItem(
-                            contact = contact,
-                            onClick = { onContactClick(contact.lookupUri) },
-                        )
-                    }
+                    ContactList(contacts = uiState.contacts, listState = listState, onContactClick = onContactClick)
+                }
+            } else {
+                Box(modifier = modifier) {
+                    ContactList(contacts = uiState.contacts, listState = listState, onContactClick = onContactClick)
                 }
             }
         }
@@ -417,6 +421,27 @@ internal fun GroupInfoHeader(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+    }
+}
+
+@Composable
+private fun ContactList(
+    contacts: List<ContactItem>,
+    listState: LazyListState,
+    onContactClick: (Uri) -> Unit,
+) {
+    LazyColumn(
+        state = listState,
+        modifier = Modifier
+            .fillMaxSize()
+            .scrollbar(listState),
+    ) {
+        items(contacts, key = { it.id }) { contact ->
+            ContactListItem(
+                contact = contact,
+                onClick = { onContactClick(contact.lookupUri) },
+            )
+        }
     }
 }
 

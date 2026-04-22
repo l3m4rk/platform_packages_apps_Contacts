@@ -253,6 +253,7 @@ class PeopleActivity : AppCompatActivity(), SelectAccountDialogFragment.Listener
                     R.string.groupSomeContactsNoPhonesToast
                 Toast.makeText(this, msgRes, Toast.LENGTH_LONG).show()
             }
+            ContactsEvent.ShowConnectionError -> showConnectionErrorMsg()
         }
     }
 
@@ -280,7 +281,10 @@ class PeopleActivity : AppCompatActivity(), SelectAccountDialogFragment.Listener
     fun isInSecondLevel() = false
     fun updateStatusBarBackground() {}
     fun updateStatusBarBackground(@Suppress("UNUSED_PARAMETER") color: Int) {}
-    fun showConnectionErrorMsg() {}
+    fun showConnectionErrorMsg() {
+        val rootView: View = findViewById(android.R.id.content)
+        Snackbar.make(rootView, R.string.connection_error_message, Snackbar.LENGTH_LONG).show()
+    }
     fun updateDrawerGroupMenu(@Suppress("UNUSED_PARAMETER") groupId: Long) {}
     fun switchToAllContacts() {}
     fun showFabWithAnimation(@Suppress("UNUSED_PARAMETER") showFab: Boolean) {}

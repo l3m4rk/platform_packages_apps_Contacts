@@ -9,12 +9,15 @@ import com.android.contacts.contacts.domain.DrawerData
 import com.android.contacts.contacts.domain.GetContactsUseCase
 import com.android.contacts.contacts.domain.GetDrawerDataUseCase
 import com.android.contacts.contacts.domain.GetGroupContactDataUseCase
+import com.android.contacts.contacts.domain.TriggerContactsSyncUseCase
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -38,6 +41,7 @@ class ContactsViewModelTest {
     private val getContacts: GetContactsUseCase = mockk()
     private val getDrawerData: GetDrawerDataUseCase = mockk()
     private val getGroupContactData: GetGroupContactDataUseCase = mockk()
+    private val triggerContactsSync: TriggerContactsSyncUseCase = mockk()
 
     @Before
     fun setUp() {
@@ -51,7 +55,7 @@ class ContactsViewModelTest {
 
     private fun viewModel(): ContactsViewModel {
         every { getDrawerData() } returns flowOf(DrawerData(emptyList(), emptyList(), false))
-        return ContactsViewModel(getContacts, getDrawerData, getGroupContactData)
+        return ContactsViewModel(getContacts, getDrawerData, getGroupContactData, triggerContactsSync)
     }
 
     //region Initial state
@@ -337,6 +341,115 @@ class ContactsViewModelTest {
             val event = awaitItem() as ContactsEvent.OpenGroupPicker
             assertEquals(ContactsUtils.SCHEME_MAILTO, event.scheme)
         }
+    }
+
+    //endregion
+
+    //region onRefresh
+
+    @Test
+    fun `onRefresh initial state has isRefreshing false`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        assertFalse(vm.uiState.value.isRefreshing)
+    }
+
+    @Test
+    fun `onRefresh no network emits ShowConnectionError and clears isRefreshing`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        coEvery { triggerContactsSync() } returns TriggerContactsSyncUseCase.Result.NoNetwork
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.events.test {
+            vm.onRefresh()
+            advanceUntilIdle()
+
+            assertEquals(ContactsEvent.ShowConnectionError, awaitItem())
+            assertFalse(vm.uiState.value.isRefreshing)
+        }
+    }
+
+    @Test
+    fun `onRefresh sets isRefreshing true before sync completes`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        // Flow never emits false — simulates long-running sync
+        val syncFlow = MutableSharedFlow<Boolean>()
+        coEvery { triggerContactsSync() } returns TriggerContactsSyncUseCase.Result.SyncStarted(syncFlow)
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.onRefresh()
+        advanceTimeBy(100) // before grace period
+
+        assertTrue(vm.uiState.value.isRefreshing)
+    }
+
+    @Test
+    fun `onRefresh clears isRefreshing when syncActive emits false after grace period`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        coEvery { triggerContactsSync() } returns TriggerContactsSyncUseCase.Result.SyncStarted(
+            flowOf(false),
+        )
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.onRefresh()
+        advanceTimeBy(600) // past 500ms grace period
+
+        assertFalse(vm.uiState.value.isRefreshing)
+    }
+
+    @Test
+    fun `onRefresh stays refreshing while sync is active then clears when done`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val syncFlow = flow {
+            emit(true)  // sync active
+            delay(800)
+            emit(false) // sync done
+        }
+        coEvery { triggerContactsSync() } returns TriggerContactsSyncUseCase.Result.SyncStarted(syncFlow)
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.onRefresh()
+        advanceTimeBy(600) // past grace, sync is active → still refreshing
+        assertTrue(vm.uiState.value.isRefreshing)
+
+        advanceTimeBy(900) // sync done
+        assertFalse(vm.uiState.value.isRefreshing)
+    }
+
+    @Test
+    fun `onRefresh emits no event when sync succeeds`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        coEvery { triggerContactsSync() } returns TriggerContactsSyncUseCase.Result.SyncStarted(
+            flowOf(false),
+        )
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.events.test {
+            vm.onRefresh()
+            advanceTimeBy(600)
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `onRefresh clears isRefreshing after timeout when sync never finishes`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val syncFlow = MutableSharedFlow<Boolean>() // never emits
+        coEvery { triggerContactsSync() } returns TriggerContactsSyncUseCase.Result.SyncStarted(syncFlow)
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.onRefresh()
+        advanceTimeBy(2_600) // grace (500) + timeout (2000) + buffer
+
+        assertFalse(vm.uiState.value.isRefreshing)
     }
 
     //endregion

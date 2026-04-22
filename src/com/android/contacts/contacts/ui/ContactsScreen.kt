@@ -32,8 +32,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberDrawerState
 import androidx.activity.compose.BackHandler
@@ -149,7 +151,16 @@ fun ContactsScreen(
         Scaffold(
             modifier = Modifier.nestedScroll(nestedScrollConnection),
             topBar = {
-                if (uiState.currentView == ContactsView.GROUP_VIEW && uiState.isGroupEditMode) {
+                if (uiState.isSelectionMode) {
+                    BackHandler { viewModel.onExitSelectionMode() }
+                    SelectionTopBar(
+                        selectedCount = uiState.selectedContactIds.size,
+                        onClose = viewModel::onExitSelectionMode,
+                        onDelete = viewModel::onDeleteSelected,
+                        onShare = viewModel::onShareSelected,
+                        onLink = viewModel::onLinkSelected,
+                    )
+                } else if (uiState.currentView == ContactsView.GROUP_VIEW && uiState.isGroupEditMode) {
                     BackHandler { viewModel.onExitGroupEditMode() }
                     selectedGroup?.let { group ->
                         GroupEditTopBar(
@@ -312,6 +323,34 @@ fun ContactsScreen(
             }
         }
     }
+
+    if (uiState.showDeleteConfirmation) {
+        DeleteConfirmationDialog(
+            onConfirm = viewModel::onDeleteConfirmed,
+            onDismiss = viewModel::onDeleteDismissed,
+        )
+    }
+}
+
+@Composable
+private fun DeleteConfirmationDialog(
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        text = { Text(stringResource(R.string.batch_delete_confirmation)) },
+        confirmButton = {
+            TextButton(onClick = onConfirm) {
+                Text(stringResource(R.string.deleteConfirmation_positive_button))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        },
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -389,6 +428,9 @@ internal fun ContactsContent(
                         contacts = uiState.contacts,
                         listState = listState,
                         onContactClick = onContactClick,
+                        selectedContactIds = uiState.selectedContactIds,
+                        onSelectionToggle = if (uiState.isSelectionMode) onSelectionToggle else null,
+                        onContactLongClick = if (!uiState.isSelectionMode) onContactLongClick else null,
                     )
                 }
             } else {

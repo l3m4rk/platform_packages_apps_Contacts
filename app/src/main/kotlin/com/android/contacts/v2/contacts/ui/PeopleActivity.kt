@@ -1,16 +1,20 @@
 package com.android.contacts.v2.contacts.ui
 
 import android.accounts.Account
+import android.content.ActivityNotFoundException
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.icu.text.MessageFormat
 import android.net.Uri
 import android.os.Bundle
+import android.provider.ContactsContract
 import android.provider.ContactsContract.Groups
 import android.provider.ContactsContract.Intents
 import android.view.View
 import android.widget.Toast
+import java.util.Locale
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -259,6 +263,51 @@ class PeopleActivity : AppCompatActivity(), SelectAccountDialogFragment.Listener
                     event.groupId, event.accountName, event.accountType, event.dataSet,
                 ).execute()
             }
+            is ContactsEvent.DeleteContacts -> {
+                startService(
+                    ContactSaveService.createDeleteMultipleContactsIntent(
+                        this,
+                        event.contactIds.toLongArray(),
+                        event.displayNames.toTypedArray(),
+                    )
+                )
+            }
+            is ContactsEvent.ShareContacts -> shareContacts(event)
+            is ContactsEvent.LinkContacts -> {
+                startService(
+                    ContactSaveService.createJoinSeveralContactsIntent(
+                        this,
+                        event.contactIds.toLongArray(),
+                    )
+                )
+            }
+        }
+    }
+
+    private fun shareContacts(event: ContactsEvent.ShareContacts) {
+        val lookupKeys = buildString {
+            for (uri in event.lookupUris) {
+                val segments = uri.pathSegments
+                if (segments.size < 2) continue
+                if (isNotEmpty()) append(':')
+                append(segments[segments.size - 2])
+            }
+        }
+        if (lookupKeys.isEmpty()) return
+        val vCardUri = Uri.withAppendedPath(
+            ContactsContract.Contacts.CONTENT_MULTI_VCARD_URI,
+            lookupKeys,
+        )
+        val title = MessageFormat(getString(R.string.title_share_via), Locale.getDefault())
+            .format(mapOf("count" to event.lookupUris.size))
+        val shareIntent = Intent(Intent.ACTION_SEND).apply {
+            type = ContactsContract.Contacts.CONTENT_VCARD_TYPE
+            putExtra(Intent.EXTRA_STREAM, vCardUri)
+        }
+        try {
+            startActivity(Intent.createChooser(shareIntent, title))
+        } catch (_: ActivityNotFoundException) {
+            Toast.makeText(this, R.string.share_error, Toast.LENGTH_SHORT).show()
         }
     }
 

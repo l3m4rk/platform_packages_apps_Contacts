@@ -25,4 +25,20 @@ sealed class ContactsEvent {
         val accountType: String?,
         val dataSet: String?,
     ) : ContactsEvent()
+
+    /** Delete the given contacts after user confirmation. */
+    data class DeleteContacts(
+        val contactIds: List<Long>,
+        val displayNames: List<String>,
+    ) : ContactsEvent()
+
+    /** Share the given contacts as vCards. */
+    data class ShareContacts(
+        val lookupUris: List<android.net.Uri>,
+    ) : ContactsEvent()
+
+    /** Link/join the given contacts into one. */
+    data class LinkContacts(
+        val contactIds: List<Long>,
+    ) : ContactsEvent()
 }

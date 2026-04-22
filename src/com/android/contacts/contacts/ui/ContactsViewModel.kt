@@ -147,7 +147,57 @@ class ContactsViewModel @Inject constructor(
     }
 
     fun onContactLongClick(contactId: Long) {
-        _uiState.update { it.copy(isGroupEditMode = true, selectedContactIds = setOf(contactId)) }
+        if (_uiState.value.currentView == ContactsView.GROUP_VIEW) {
+            _uiState.update { it.copy(isGroupEditMode = true, selectedContactIds = setOf(contactId)) }
+        } else {
+            _uiState.update { it.copy(isSelectionMode = true, selectedContactIds = setOf(contactId)) }
+        }
+    }
+
+    fun onExitSelectionMode() {
+        _uiState.update { it.copy(isSelectionMode = false, selectedContactIds = emptySet(), showDeleteConfirmation = false) }
+    }
+
+    fun onDeleteSelected() {
+        val selected = _uiState.value.selectedContactIds
+        if (selected.isEmpty()) return
+        _uiState.update { it.copy(showDeleteConfirmation = true) }
+    }
+
+    fun onDeleteDismissed() {
+        _uiState.update { it.copy(showDeleteConfirmation = false) }
+    }
+
+    fun onDeleteConfirmed() {
+        viewModelScope.launch {
+            val selected = _uiState.value.selectedContactIds
+            val ids = selected.toList()
+            val names = _uiState.value.contacts
+                .filter { it.id in selected }
+                .map { it.displayName }
+            _uiState.update { it.copy(showDeleteConfirmation = false, isSelectionMode = false, selectedContactIds = emptySet()) }
+            _events.emit(ContactsEvent.DeleteContacts(ids, names))
+        }
+    }
+
+    fun onShareSelected() {
+        viewModelScope.launch {
+            val uris = _uiState.value.contacts
+                .filter { it.id in _uiState.value.selectedContactIds }
+                .map { it.lookupUri }
+            if (uris.isEmpty()) return@launch
+            _events.emit(ContactsEvent.ShareContacts(uris))
+            _uiState.update { it.copy(isSelectionMode = false, selectedContactIds = emptySet()) }
+        }
+    }
+
+    fun onLinkSelected() {
+        viewModelScope.launch {
+            val ids = _uiState.value.selectedContactIds.toList()
+            if (ids.size < 2) return@launch
+            _events.emit(ContactsEvent.LinkContacts(ids))
+            _uiState.update { it.copy(isSelectionMode = false, selectedContactIds = emptySet()) }
+        }
     }
 
     fun onExitGroupEditMode() {
@@ -160,7 +210,10 @@ class ContactsViewModel @Inject constructor(
                 state.selectedContactIds - contactId
             else
                 state.selectedContactIds + contactId
-            state.copy(selectedContactIds = updated)
+            state.copy(
+                selectedContactIds = updated,
+                isSelectionMode = if (state.isSelectionMode) updated.isNotEmpty() else state.isSelectionMode,
+            )
         }
     }
 
@@ -183,7 +236,7 @@ class ContactsViewModel @Inject constructor(
 
     fun onRefresh() {
         viewModelScope.launch {
-            _uiState.update { it.copy(isRefreshing = true) }
+            _uiState.update { it.copy(isRefreshing = true, isSelectionMode = false, selectedContactIds = emptySet()) }
             when (val result = triggerContactsSync()) {
                 NoNetwork -> {
                     _events.emit(ContactsEvent.ShowConnectionError)

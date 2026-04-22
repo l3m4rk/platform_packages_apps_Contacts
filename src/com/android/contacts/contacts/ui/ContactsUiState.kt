@@ -17,11 +17,16 @@ data class ContactsUiState(
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val isGroupEditMode: Boolean = false,
+    val isSelectionMode: Boolean = false,
     val selectedContactIds: Set<Long> = emptySet(),
+    val showDeleteConfirmation: Boolean = false,
 )
 
+val ContactsUiState.isAnySelectionModeActive: Boolean
+    get() = isGroupEditMode || isSelectionMode
+
 val ContactsUiState.isFabVisible: Boolean
-    get() = currentView != ContactsView.GROUP_VIEW && !isSearchActive
+    get() = currentView != ContactsView.GROUP_VIEW && !isSearchActive && !isSelectionMode
 
 fun ContactsUiState.showLoadingUi() = contacts.isEmpty() && isLoading
 

@@ -467,13 +467,29 @@ class ContactsViewModelTest {
     }
 
     @Test
-    fun `onContactLongClick enters edit mode and selects the long-pressed contact`() {
+    fun `onContactLongClick in ALL_CONTACTS enters selection mode and selects contact`() {
         every { getContacts(any(), any()) } returns flowOf(emptyList())
         val vm = viewModel()
+        // default view is ALL_CONTACTS
+
+        vm.onContactLongClick(42L)
+
+        assertTrue(vm.uiState.value.isSelectionMode)
+        assertFalse(vm.uiState.value.isGroupEditMode)
+        assertEquals(setOf(42L), vm.uiState.value.selectedContactIds)
+    }
+
+    @Test
+    fun `onContactLongClick in GROUP_VIEW enters group edit mode and selects contact`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+        vm.onGroupSelected(group)
+        advanceUntilIdle()
 
         vm.onContactLongClick(42L)
 
         assertTrue(vm.uiState.value.isGroupEditMode)
+        assertFalse(vm.uiState.value.isSelectionMode)
         assertEquals(setOf(42L), vm.uiState.value.selectedContactIds)
     }
 
@@ -572,6 +588,259 @@ class ContactsViewModelTest {
             advanceUntilIdle()
             expectNoEvents()
         }
+    }
+
+    //endregion
+
+    //region Selection mode
+
+    @Test
+    fun `onExitSelectionMode clears isSelectionMode and selectedContactIds`() {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onContactLongClick(1L)
+        vm.onExitSelectionMode()
+
+        assertFalse(vm.uiState.value.isSelectionMode)
+        assertEquals(emptySet<Long>(), vm.uiState.value.selectedContactIds)
+    }
+
+    @Test
+    fun `onExitSelectionMode clears showDeleteConfirmation`() {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onContactLongClick(1L)
+        vm.onDeleteSelected()
+        assertTrue(vm.uiState.value.showDeleteConfirmation)
+
+        vm.onExitSelectionMode()
+
+        assertFalse(vm.uiState.value.showDeleteConfirmation)
+    }
+
+    @Test
+    fun `deselecting last contact exits selection mode automatically`() {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onContactLongClick(42L)
+        assertTrue(vm.uiState.value.isSelectionMode)
+
+        vm.onToggleContactSelection(42L)
+
+        assertFalse(vm.uiState.value.isSelectionMode)
+        assertEquals(emptySet<Long>(), vm.uiState.value.selectedContactIds)
+    }
+
+    @Test
+    fun `deselecting in group edit mode does not exit edit mode`() {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onEnterGroupEditMode()
+        vm.onToggleContactSelection(42L)
+        vm.onToggleContactSelection(42L)
+
+        assertTrue(vm.uiState.value.isGroupEditMode)
+    }
+
+    @Test
+    fun `onDeleteSelected sets showDeleteConfirmation true`() {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onContactLongClick(1L)
+        vm.onDeleteSelected()
+
+        assertTrue(vm.uiState.value.showDeleteConfirmation)
+    }
+
+    @Test
+    fun `onDeleteSelected does nothing when selection is empty`() {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onDeleteSelected()
+
+        assertFalse(vm.uiState.value.showDeleteConfirmation)
+    }
+
+    @Test
+    fun `onDeleteDismissed clears showDeleteConfirmation and keeps selection`() {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onContactLongClick(1L)
+        vm.onDeleteSelected()
+        vm.onDeleteDismissed()
+
+        assertFalse(vm.uiState.value.showDeleteConfirmation)
+        assertTrue(vm.uiState.value.isSelectionMode)
+        assertEquals(setOf(1L), vm.uiState.value.selectedContactIds)
+    }
+
+    @Test
+    fun `onDeleteConfirmed emits DeleteContacts with correct ids and names`() = runTest {
+        val alice = ContactItem(1L, "Alice", mockk<Uri>(), null)
+        val bob = ContactItem(2L, "Bob", mockk<Uri>(), null)
+        every { getContacts(any(), any()) } returns flowOf(listOf(alice, bob))
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.onToggleContactSelection(1L)
+        vm.onToggleContactSelection(2L)
+        vm.onDeleteSelected()
+
+        vm.events.test {
+            vm.onDeleteConfirmed()
+            advanceUntilIdle()
+
+            val event = awaitItem() as ContactsEvent.DeleteContacts
+            assertEquals(setOf(1L, 2L), event.contactIds.toSet())
+            assertEquals(setOf("Alice", "Bob"), event.displayNames.toSet())
+        }
+    }
+
+    @Test
+    fun `onDeleteConfirmed clears selection mode and showDeleteConfirmation`() = runTest {
+        val alice = ContactItem(1L, "Alice", mockk<Uri>(), null)
+        every { getContacts(any(), any()) } returns flowOf(listOf(alice))
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.onToggleContactSelection(1L)
+        vm.onDeleteSelected()
+
+        vm.events.test {
+            vm.onDeleteConfirmed()
+            advanceUntilIdle()
+            awaitItem()
+        }
+
+        assertFalse(vm.uiState.value.isSelectionMode)
+        assertFalse(vm.uiState.value.showDeleteConfirmation)
+        assertEquals(emptySet<Long>(), vm.uiState.value.selectedContactIds)
+    }
+
+    @Test
+    fun `onShareSelected emits ShareContacts with correct lookup URIs`() = runTest {
+        val uri1 = mockk<Uri>()
+        val uri2 = mockk<Uri>()
+        val alice = ContactItem(1L, "Alice", uri1, null)
+        val bob = ContactItem(2L, "Bob", uri2, null)
+        every { getContacts(any(), any()) } returns flowOf(listOf(alice, bob))
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.onToggleContactSelection(1L)
+        vm.onToggleContactSelection(2L)
+
+        vm.events.test {
+            vm.onShareSelected()
+            advanceUntilIdle()
+
+            val event = awaitItem() as ContactsEvent.ShareContacts
+            assertEquals(setOf(uri1, uri2), event.lookupUris.toSet())
+        }
+    }
+
+    @Test
+    fun `onShareSelected clears selection mode`() = runTest {
+        val alice = ContactItem(1L, "Alice", mockk<Uri>(), null)
+        every { getContacts(any(), any()) } returns flowOf(listOf(alice))
+        val vm = viewModel()
+        advanceUntilIdle()
+
+        vm.onToggleContactSelection(1L)
+
+        vm.events.test {
+            vm.onShareSelected()
+            advanceUntilIdle()
+            awaitItem()
+        }
+
+        assertFalse(vm.uiState.value.isSelectionMode)
+        assertEquals(emptySet<Long>(), vm.uiState.value.selectedContactIds)
+    }
+
+    @Test
+    fun `onShareSelected emits nothing when selection is empty`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.events.test {
+            vm.onShareSelected()
+            advanceUntilIdle()
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `onLinkSelected emits LinkContacts with correct ids`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onToggleContactSelection(10L)
+        vm.onToggleContactSelection(20L)
+
+        vm.events.test {
+            vm.onLinkSelected()
+            advanceUntilIdle()
+
+            val event = awaitItem() as ContactsEvent.LinkContacts
+            assertEquals(setOf(10L, 20L), event.contactIds.toSet())
+        }
+    }
+
+    @Test
+    fun `onLinkSelected clears selection mode`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onToggleContactSelection(10L)
+        vm.onToggleContactSelection(20L)
+
+        vm.events.test {
+            vm.onLinkSelected()
+            advanceUntilIdle()
+            awaitItem()
+        }
+
+        assertFalse(vm.uiState.value.isSelectionMode)
+        assertEquals(emptySet<Long>(), vm.uiState.value.selectedContactIds)
+    }
+
+    @Test
+    fun `onLinkSelected emits nothing when fewer than 2 contacts selected`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onToggleContactSelection(10L)
+
+        vm.events.test {
+            vm.onLinkSelected()
+            advanceUntilIdle()
+            expectNoEvents()
+        }
+    }
+
+    @Test
+    fun `onRefresh clears selection mode`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val syncFlow = flowOf(false)
+        coEvery { triggerContactsSync() } returns TriggerContactsSyncUseCase.Result.SyncStarted(syncFlow)
+        val vm = viewModel()
+
+        vm.onContactLongClick(1L)
+        assertTrue(vm.uiState.value.isSelectionMode)
+
+        vm.onRefresh()
+        advanceTimeBy(600)
+
+        assertFalse(vm.uiState.value.isSelectionMode)
+        assertEquals(emptySet<Long>(), vm.uiState.value.selectedContactIds)
     }
 
     //endregion

@@ -1,6 +1,8 @@
 package com.android.contacts.contacts.data
 
+import android.content.ContentResolver
 import android.content.Context
+import android.database.ContentObserver
 import android.net.Uri
 import android.provider.ContactsContract
 import android.util.Log
@@ -12,7 +14,10 @@ import com.android.contacts.list.ContactListAdapter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 
@@ -28,7 +33,29 @@ class ContactsRepositoryImpl @Inject constructor(
     @param:IoDispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ContactsRepository {
 
-    override fun getContacts(query: String, filter: ContactsFilter): Flow<List<ContactItem>> = flow {
+    override fun getContacts(query: String, filter: ContactsFilter): Flow<List<ContactItem>> {
+        // Group membership is stored in Data, so observe that URI for group views.
+        // All other views observe the Contacts URI.
+        val observeUri = if (query.isBlank() && filter is ContactsFilter.ByGroup)
+            ContactsContract.Data.CONTENT_URI
+        else
+            ContactsContract.Contacts.CONTENT_URI
+
+        return observeContentUri(observeUri)
+            .flatMapLatest { queryContacts(query, filter) }
+            .flowOn(ioDispatcher)
+    }
+
+    private fun observeContentUri(uri: Uri): Flow<Unit> = callbackFlow {
+        val observer = object : ContentObserver(null) {
+            override fun onChange(selfChange: Boolean) { trySend(Unit) }
+        }
+        context.contentResolver.registerContentObserver(uri, true, observer)
+        trySend(Unit)
+        awaitClose { context.contentResolver.unregisterContentObserver(observer) }
+    }
+
+    private fun queryContacts(query: String, filter: ContactsFilter): Flow<List<ContactItem>> = flow {
         val isSearch = query.isNotBlank()
 
         // Group filtering needs a two-step query; skip when in search mode
@@ -78,7 +105,7 @@ class ContactsRepositoryImpl @Inject constructor(
         } ?: emptyList()
 
         emit(contacts)
-    }.flowOn(ioDispatcher)
+    }
 
     private fun getGroupContacts(groupId: Long): List<ContactItem> {
         val contactIds: Set<Long> = context.contentResolver.query(

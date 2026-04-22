@@ -142,6 +142,41 @@ class ContactsViewModel @Inject constructor(
         }
     }
 
+    fun onEnterGroupEditMode() {
+        _uiState.update { it.copy(isGroupEditMode = true) }
+    }
+
+    fun onExitGroupEditMode() {
+        _uiState.update { it.copy(isGroupEditMode = false, selectedContactIds = emptySet()) }
+    }
+
+    fun onToggleContactSelection(contactId: Long) {
+        _uiState.update { state ->
+            val updated = if (contactId in state.selectedContactIds)
+                state.selectedContactIds - contactId
+            else
+                state.selectedContactIds + contactId
+            state.copy(selectedContactIds = updated)
+        }
+    }
+
+    fun onRemoveSelectedFromGroup(group: GroupListItem) {
+        viewModelScope.launch {
+            val ids = _uiState.value.selectedContactIds.toLongArray()
+            if (ids.isEmpty()) return@launch
+            _events.emit(
+                ContactsEvent.RemoveFromGroup(
+                    contactIds = ids,
+                    groupId = group.groupId,
+                    accountName = group.accountName,
+                    accountType = group.accountType,
+                    dataSet = group.dataSet,
+                ),
+            )
+            _uiState.update { it.copy(isGroupEditMode = false, selectedContactIds = emptySet()) }
+        }
+    }
+
     fun onRefresh() {
         viewModelScope.launch {
             _uiState.update { it.copy(isRefreshing = true) }

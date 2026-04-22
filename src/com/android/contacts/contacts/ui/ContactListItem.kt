@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
@@ -38,6 +39,8 @@ internal fun ContactListItem(
     contact: ContactItem,
     onClick: () -> Unit,
     searchQuery: String = "",
+    isSelected: Boolean = false,
+    onSelectionToggle: (() -> Unit)? = null,
 ) {
     val highlightColor = MaterialTheme.colorScheme.primary
     val headlineText = remember(contact.displayName, searchQuery) {
@@ -73,7 +76,10 @@ internal fun ContactListItem(
             }
         },
         leadingContent = { ContactAvatar(contact) },
-        modifier = Modifier.clickable(onClick = onClick),
+        trailingContent = if (onSelectionToggle != null) {
+            { Checkbox(checked = isSelected, onCheckedChange = { onSelectionToggle() }) }
+        } else null,
+        modifier = Modifier.clickable(onClick = onSelectionToggle ?: onClick),
     )
 }
 

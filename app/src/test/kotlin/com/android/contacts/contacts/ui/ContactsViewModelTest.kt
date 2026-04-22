@@ -453,6 +453,117 @@ class ContactsViewModelTest {
     }
 
     //endregion
+
+    //region Group edit mode
+
+    @Test
+    fun `onEnterGroupEditMode sets isGroupEditMode true`() {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onEnterGroupEditMode()
+
+        assertTrue(vm.uiState.value.isGroupEditMode)
+    }
+
+    @Test
+    fun `onExitGroupEditMode clears isGroupEditMode and selectedContactIds`() {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onEnterGroupEditMode()
+        vm.onToggleContactSelection(1L)
+        vm.onExitGroupEditMode()
+
+        assertFalse(vm.uiState.value.isGroupEditMode)
+        assertEquals(emptySet<Long>(), vm.uiState.value.selectedContactIds)
+    }
+
+    @Test
+    fun `onToggleContactSelection adds contact to selection`() {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onToggleContactSelection(42L)
+
+        assertEquals(setOf(42L), vm.uiState.value.selectedContactIds)
+    }
+
+    @Test
+    fun `onToggleContactSelection removes already selected contact`() {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onToggleContactSelection(42L)
+        vm.onToggleContactSelection(42L)
+
+        assertEquals(emptySet<Long>(), vm.uiState.value.selectedContactIds)
+    }
+
+    @Test
+    fun `onToggleContactSelection handles multiple contacts independently`() {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onToggleContactSelection(1L)
+        vm.onToggleContactSelection(2L)
+        vm.onToggleContactSelection(1L) // deselect
+
+        assertEquals(setOf(2L), vm.uiState.value.selectedContactIds)
+    }
+
+    @Test
+    fun `onRemoveSelectedFromGroup emits RemoveFromGroup with correct data`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onToggleContactSelection(10L)
+        vm.onToggleContactSelection(20L)
+
+        vm.events.test {
+            vm.onRemoveSelectedFromGroup(group)
+            advanceUntilIdle()
+
+            val event = awaitItem() as ContactsEvent.RemoveFromGroup
+            assertEquals(group.groupId, event.groupId)
+            assertEquals(group.accountName, event.accountName)
+            assertEquals(group.accountType, event.accountType)
+            assertEquals(group.dataSet, event.dataSet)
+            assertTrue(event.contactIds.toSet() == setOf(10L, 20L))
+        }
+    }
+
+    @Test
+    fun `onRemoveSelectedFromGroup clears edit mode and selection after emitting event`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.onEnterGroupEditMode()
+        vm.onToggleContactSelection(10L)
+
+        vm.events.test {
+            vm.onRemoveSelectedFromGroup(group)
+            advanceUntilIdle()
+            awaitItem() // consume the event
+        }
+
+        assertFalse(vm.uiState.value.isGroupEditMode)
+        assertEquals(emptySet<Long>(), vm.uiState.value.selectedContactIds)
+    }
+
+    @Test
+    fun `onRemoveSelectedFromGroup emits nothing when selection is empty`() = runTest {
+        every { getContacts(any(), any()) } returns flowOf(emptyList())
+        val vm = viewModel()
+
+        vm.events.test {
+            vm.onRemoveSelectedFromGroup(group)
+            advanceUntilIdle()
+            expectNoEvents()
+        }
+    }
+
+    //endregion
 }
 
 private val contact = ContactItem(1L, "Alice", mockk<Uri>(), null)

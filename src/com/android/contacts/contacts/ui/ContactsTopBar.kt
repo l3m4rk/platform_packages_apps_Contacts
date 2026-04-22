@@ -16,6 +16,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.SearchBar
 import androidx.compose.material3.SearchBarDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.animation.core.animateDpAsState
@@ -123,6 +124,34 @@ internal fun GroupTopBar(
             }
         },
         actions = { actions() },
+        modifier = modifier,
+    )
+}
+
+@Composable
+internal fun GroupEditTopBar(
+    selectedCount: Int,
+    onClose: () -> Unit,
+    onRemove: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    TopAppBar(
+        title = { Text(stringResource(R.string.title_edit_group)) },
+        navigationIcon = {
+            IconButton(onClick = onClose) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = stringResource(R.string.cancel_button_content_description),
+                )
+            }
+        },
+        actions = {
+            if (selectedCount > 0) {
+                TextButton(onClick = onRemove) {
+                    Text(stringResource(R.string.menu_removeFromGroup))
+                }
+            }
+        },
         modifier = modifier,
     )
 }

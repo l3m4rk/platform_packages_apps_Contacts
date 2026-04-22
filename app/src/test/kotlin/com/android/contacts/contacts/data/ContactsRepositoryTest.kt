@@ -2,13 +2,17 @@ package com.android.contacts.contacts.data
 
 import android.content.ContentResolver
 import android.content.Context
+import android.database.ContentObserver
 import android.database.MatrixCursor
 import android.net.Uri
 import android.provider.ContactsContract
+import app.cash.turbine.test
 import com.android.contacts.contacts.domain.ContactsFilter
 import com.android.contacts.list.ContactListFilter
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
+import io.mockk.runs
 import io.mockk.slot
 import junit.framework.TestCase.assertEquals
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -31,6 +35,8 @@ class ContactsRepositoryTest {
     @Before
     fun setUp() {
         every { context.contentResolver } returns resolver
+        every { resolver.registerContentObserver(any(), any(), any()) } just runs
+        every { resolver.unregisterContentObserver(any()) } just runs
     }
 
     private fun makeContactsCursor(vararg rows: Array<Any?>): MatrixCursor {
@@ -140,6 +146,58 @@ class ContactsRepositoryTest {
         repo.getContacts(filter = ContactsFilter.AllContacts).first()
 
         assertEquals(ContactsContract.Contacts.CONTENT_URI, uriSlot.captured)
+    }
+
+    //endregion
+
+    //region Reactive updates
+
+    @Test
+    fun `content change triggers re-query and emits updated list`() = runTest {
+        val observerSlot = slot<ContentObserver>()
+        every { resolver.registerContentObserver(any(), any(), capture(observerSlot)) } just runs
+
+        val firstCursor = makeContactsCursor(arrayOf(1L, "Alice", null, null, null, null, "k1", null, null))
+        val secondCursor = makeContactsCursor(
+            arrayOf(1L, "Alice", null, null, null, null, "k1", null, null),
+            arrayOf(2L, "Bob", null, null, null, null, "k2", null, null),
+        )
+        var callCount = 0
+        every { resolver.query(any(), any(), any(), any(), any()) } answers {
+            if (callCount++ == 0) firstCursor else secondCursor
+        }
+
+        repo.getContacts(filter = ContactsFilter.AllContacts).test {
+            assertEquals(1, awaitItem().size) // initial emission
+
+            observerSlot.captured.onChange(false) // simulate DB change
+
+            assertEquals(2, awaitItem().size) // re-query result
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `group view observes Data URI for reactive updates`() = runTest {
+        val observedUriSlot = slot<Uri>()
+        every { resolver.registerContentObserver(capture(observedUriSlot), any(), any()) } just runs
+        every { resolver.query(any(), any(), any(), any(), any()) } returns
+            MatrixCursor(arrayOf(ContactsContract.Data.CONTACT_ID))
+
+        repo.getContacts(filter = ContactsFilter.ByGroup(1L)).first()
+
+        assertEquals(ContactsContract.Data.CONTENT_URI, observedUriSlot.captured)
+    }
+
+    @Test
+    fun `non-group view observes Contacts URI for reactive updates`() = runTest {
+        val observedUriSlot = slot<Uri>()
+        every { resolver.registerContentObserver(capture(observedUriSlot), any(), any()) } just runs
+        every { resolver.query(any(), any(), any(), any(), any()) } returns makeContactsCursor()
+
+        repo.getContacts(filter = ContactsFilter.AllContacts).first()
+
+        assertEquals(ContactsContract.Contacts.CONTENT_URI, observedUriSlot.captured)
     }
 
     //endregion

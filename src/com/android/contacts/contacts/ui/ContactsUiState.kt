@@ -16,6 +16,8 @@ data class ContactsUiState(
     val contacts: List<ContactItem> = emptyList(),
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
+    val isGroupEditMode: Boolean = false,
+    val selectedContactIds: Set<Long> = emptySet(),
 )
 
 val ContactsUiState.isFabVisible: Boolean

@@ -16,4 +16,13 @@ sealed class ContactsEvent {
 
     /** Network unavailable when user triggered pull-to-refresh. */
     data object ShowConnectionError : ContactsEvent()
+
+    /** Remove the given contacts from their group via ContactSaveService. */
+    data class RemoveFromGroup(
+        val contactIds: LongArray,
+        val groupId: Long,
+        val accountName: String?,
+        val accountType: String?,
+        val dataSet: String?,
+    ) : ContactsEvent()
 }

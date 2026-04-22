@@ -36,6 +36,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberDrawerState
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -82,7 +83,6 @@ fun ContactsScreen(
     onAddMember: (GroupListItem) -> Unit = {},
     onRenameGroup: (GroupListItem) -> Unit = {},
     onDeleteGroup: (GroupListItem) -> Unit = {},
-    onRemoveContacts: (GroupListItem) -> Unit = {},
     onSettingsClick: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -96,7 +96,10 @@ fun ContactsScreen(
         ContactsView.ACCOUNT_VIEW -> uiState.selectedAccount?.displayName ?: allContactsTitle
     }
     var groupMenuExpanded by remember { mutableStateOf(false) }
-    LaunchedEffect(uiState.selectedGroupId) { groupMenuExpanded = false }
+    LaunchedEffect(uiState.selectedGroupId) {
+        groupMenuExpanded = false
+        viewModel.onExitGroupEditMode()
+    }
 
     var searchBarHeightPx by remember { mutableFloatStateOf(0f) }
     var searchBarOffsetPx by remember { mutableFloatStateOf(0f) }
@@ -146,7 +149,16 @@ fun ContactsScreen(
         Scaffold(
             modifier = Modifier.nestedScroll(nestedScrollConnection),
             topBar = {
-                if (uiState.currentView == ContactsView.GROUP_VIEW) {
+                if (uiState.currentView == ContactsView.GROUP_VIEW && uiState.isGroupEditMode) {
+                    BackHandler { viewModel.onExitGroupEditMode() }
+                    selectedGroup?.let { group ->
+                        GroupEditTopBar(
+                            selectedCount = uiState.selectedContactIds.size,
+                            onClose = { viewModel.onExitGroupEditMode() },
+                            onRemove = { viewModel.onRemoveSelectedFromGroup(group) },
+                        )
+                    }
+                } else if (uiState.currentView == ContactsView.GROUP_VIEW) {
                     GroupTopBar(
                         title = topBarTitle,
                         onMenuClick = { scope.launch { drawerState.open() } },
@@ -189,7 +201,7 @@ fun ContactsScreen(
                                                 text = { Text(stringResource(R.string.menu_editGroup)) },
                                                 onClick = {
                                                     groupMenuExpanded = false
-                                                    onRemoveContacts(group)
+                                                    viewModel.onEnterGroupEditMode()
                                                 },
                                             )
                                         }
@@ -291,6 +303,7 @@ fun ContactsScreen(
                         onRefresh = viewModel::onRefresh,
                         isRefreshEnabled = uiState.currentView != ContactsView.GROUP_VIEW &&
                             !uiState.isSearchActive,
+                        onSelectionToggle = viewModel::onToggleContactSelection,
                         modifier = Modifier.weight(1f),
                         onAddContacts = selectedGroup?.let { group -> { onAddMember(group) } },
                     )
@@ -308,6 +321,7 @@ internal fun ContactsContent(
     onContactClick: (Uri) -> Unit,
     onRefresh: () -> Unit,
     isRefreshEnabled: Boolean = true,
+    onSelectionToggle: (Long) -> Unit = {},
     modifier: Modifier,
     onAddContacts: (() -> Unit)? = null,
 ) {
@@ -369,11 +383,21 @@ internal fun ContactsContent(
                     onRefresh = onRefresh,
                     modifier = modifier,
                 ) {
-                    ContactList(contacts = uiState.contacts, listState = listState, onContactClick = onContactClick)
+                    ContactList(
+                        contacts = uiState.contacts,
+                        listState = listState,
+                        onContactClick = onContactClick,
+                    )
                 }
             } else {
                 Box(modifier = modifier) {
-                    ContactList(contacts = uiState.contacts, listState = listState, onContactClick = onContactClick)
+                    ContactList(
+                        contacts = uiState.contacts,
+                        listState = listState,
+                        onContactClick = onContactClick,
+                        selectedContactIds = uiState.selectedContactIds,
+                        onSelectionToggle = if (uiState.isGroupEditMode) onSelectionToggle else null,
+                    )
                 }
             }
         }
@@ -429,6 +453,8 @@ private fun ContactList(
     contacts: List<ContactItem>,
     listState: LazyListState,
     onContactClick: (Uri) -> Unit,
+    selectedContactIds: Set<Long> = emptySet(),
+    onSelectionToggle: ((Long) -> Unit)? = null,
 ) {
     LazyColumn(
         state = listState,
@@ -440,6 +466,8 @@ private fun ContactList(
             ContactListItem(
                 contact = contact,
                 onClick = { onContactClick(contact.lookupUri) },
+                isSelected = contact.id in selectedContactIds,
+                onSelectionToggle = onSelectionToggle?.let { toggle -> { toggle(contact.id) } },
             )
         }
     }

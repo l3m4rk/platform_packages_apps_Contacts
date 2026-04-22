@@ -100,7 +100,6 @@ class PeopleActivity : AppCompatActivity(), SelectAccountDialogFragment.Listener
                     onAddMember = { group -> addMemberToGroup(group) },
                     onRenameGroup = { group -> renameGroup(group) },
                     onDeleteGroup = { group -> deleteGroup(group) },
-                    onRemoveContacts = { /* TODO: group edit mode */ },
                     onSettingsClick = { startActivity(createPreferenceIntent()) },
                 )
             }
@@ -254,6 +253,12 @@ class PeopleActivity : AppCompatActivity(), SelectAccountDialogFragment.Listener
                 Toast.makeText(this, msgRes, Toast.LENGTH_LONG).show()
             }
             ContactsEvent.ShowConnectionError -> showConnectionErrorMsg()
+            is ContactsEvent.RemoveFromGroup -> {
+                UpdateGroupMembersAsyncTask(
+                    UpdateGroupMembersAsyncTask.TYPE_REMOVE, this, event.contactIds,
+                    event.groupId, event.accountName, event.accountType, event.dataSet,
+                ).execute()
+            }
         }
     }
 

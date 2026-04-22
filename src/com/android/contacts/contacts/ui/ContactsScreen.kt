@@ -206,7 +206,7 @@ fun ContactsScreen(
                                             )
                                         }
                                         if (!group.isReadOnly) {
-                                            HorizontalDivider()
+                                            if (hasContacts) HorizontalDivider()
                                             DropdownMenuItem(
                                                 text = { Text(stringResource(R.string.menu_renameGroup)) },
                                                 onClick = {

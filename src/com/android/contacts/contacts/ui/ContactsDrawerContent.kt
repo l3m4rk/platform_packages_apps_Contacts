@@ -14,6 +14,7 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.PermanentDrawerSheet
 import androidx.compose.material3.NavigationDrawerItem
 import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Surface
@@ -40,85 +41,118 @@ fun ContactsDrawerContent(
     onAccountClick: (AccountDisplayItem) -> Unit,
     onSettingsClick: () -> Unit,
     modifier: Modifier = Modifier,
+    isPermanent: Boolean = false,
 ) {
-    ModalDrawerSheet(modifier = modifier) {
-        LazyColumn {
-            item {
+    if (isPermanent) {
+        PermanentDrawerSheet(modifier = modifier) {
+            DrawerItems(
+                uiState = uiState,
+                onAllContactsClick = onAllContactsClick,
+                onGroupClick = onGroupClick,
+                onCreateLabelClick = onCreateLabelClick,
+                onAccountClick = onAccountClick,
+                onSettingsClick = onSettingsClick,
+            )
+        }
+    } else {
+        ModalDrawerSheet(modifier = modifier) {
+            DrawerItems(
+                uiState = uiState,
+                onAllContactsClick = onAllContactsClick,
+                onGroupClick = onGroupClick,
+                onCreateLabelClick = onCreateLabelClick,
+                onAccountClick = onAccountClick,
+                onSettingsClick = onSettingsClick
+            )
+        }
+    }
+}
+
+@Composable
+private fun DrawerItems(
+    uiState: ContactsUiState,
+    onAllContactsClick: () -> Unit,
+    onGroupClick: (GroupListItem) -> Unit,
+    onCreateLabelClick: () -> Unit,
+    onAccountClick: (AccountDisplayItem) -> Unit,
+    onSettingsClick: () -> Unit,
+) {
+    LazyColumn {
+        item {
+            NavigationDrawerItem(
+                icon = { Icon(Icons.Default.AccountCircle, contentDescription = null) },
+                label = { Text(stringResource(R.string.contactsList)) },
+                selected = uiState.currentView == ContactsView.ALL_CONTACTS,
+                onClick = onAllContactsClick,
+                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+            )
+        }
+
+        // Groups section
+        if (uiState.groups.isNotEmpty() || uiState.hasGroupWritableAccounts) {
+            item { DrawerSectionHeader(text = stringResource(R.string.menu_title_groups)) }
+            items(uiState.groups, key = { it.groupId }) { group ->
                 NavigationDrawerItem(
-                    icon = { Icon(Icons.Default.AccountCircle, contentDescription = null) },
-                    label = { Text(stringResource(R.string.contactsList)) },
-                    selected = uiState.currentView == ContactsView.ALL_CONTACTS,
-                    onClick = onAllContactsClick,
+                    icon = { Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null) },
+                    label = { Text(group.title) },
+                    badge = if (group.memberCount > 0) {
+                        { Text(group.memberCount.toString()) }
+                    } else null,
+                    selected = uiState.currentView == ContactsView.GROUP_VIEW && uiState.selectedGroupId == group.groupId,
+                    onClick = { onGroupClick(group) },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                 )
             }
-
-            // Groups section
-            if (uiState.groups.isNotEmpty() || uiState.hasGroupWritableAccounts) {
-                item { DrawerSectionHeader(text = stringResource(R.string.menu_title_groups)) }
-                items(uiState.groups, key = { it.groupId }) { group ->
+            if (uiState.hasGroupWritableAccounts) {
+                item {
                     NavigationDrawerItem(
-                        icon = { Icon(Icons.AutoMirrored.Filled.Label, contentDescription = null) },
-                        label = { Text(group.title) },
-                        badge = if (group.memberCount > 0) {
-                            { Text(group.memberCount.toString()) }
-                        } else null,
-                        selected = uiState.currentView == ContactsView.GROUP_VIEW && uiState.selectedGroupId == group.groupId,
-                        onClick = { onGroupClick(group) },
-                        modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
-                    )
-                }
-                if (uiState.hasGroupWritableAccounts) {
-                    item {
-                        NavigationDrawerItem(
-                            icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                            label = { Text(stringResource(R.string.menu_new_group_action_bar)) },
-                            selected = false,
-                            onClick = onCreateLabelClick,
-                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
-                        )
-                    }
-                }
-            }
-
-            // Accounts section
-            if (uiState.accounts.isNotEmpty()) {
-                item { DrawerSectionHeader(text = stringResource(R.string.menu_title_filters)) }
-                items(uiState.accounts, key = { it.filter.id }) { item ->
-                    NavigationDrawerItem(
-                        icon = {
-                            val bitmap = item.icon?.toBitmap()
-                            if (bitmap != null) {
-                                Image(bitmap.asImageBitmap(), contentDescription = item.displayName)
-                            } else {
-                                Icon(Icons.Default.AccountBox, contentDescription = item.displayName)
-                            }
-                        },
-                        label = { Text(item.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        selected = uiState.currentView == ContactsView.ACCOUNT_VIEW &&
-                            uiState.selectedAccount == item,
-                        onClick = { onAccountClick(item) },
+                        icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                        label = { Text(stringResource(R.string.menu_new_group_action_bar)) },
+                        selected = false,
+                        onClick = onCreateLabelClick,
                         modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                     )
                 }
             }
+        }
 
-            // Divider + Settings
-            item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
-            item {
+        // Accounts section
+        if (uiState.accounts.isNotEmpty()) {
+            item { DrawerSectionHeader(text = stringResource(R.string.menu_title_filters)) }
+            items(uiState.accounts, key = { it.filter.id }) { item ->
                 NavigationDrawerItem(
                     icon = {
-                        Icon(
-                            Icons.Default.Settings,
-                            contentDescription = stringResource(R.string.menu_settings),
-                        )
+                        val bitmap = item.icon?.toBitmap()
+                        if (bitmap != null) {
+                            Image(bitmap.asImageBitmap(), contentDescription = item.displayName)
+                        } else {
+                            Icon(Icons.Default.AccountBox, contentDescription = item.displayName)
+                        }
                     },
-                    label = { Text(stringResource(R.string.menu_settings)) },
-                    selected = false,
-                    onClick = onSettingsClick,
+                    label = { Text(item.displayName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    selected = uiState.currentView == ContactsView.ACCOUNT_VIEW &&
+                        uiState.selectedAccount == item,
+                    onClick = { onAccountClick(item) },
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                 )
             }
+        }
+
+        // Divider + Settings
+        item { HorizontalDivider(Modifier.padding(vertical = 8.dp)) }
+        item {
+            NavigationDrawerItem(
+                icon = {
+                    Icon(
+                        Icons.Default.Settings,
+                        contentDescription = stringResource(R.string.menu_settings),
+                    )
+                },
+                label = { Text(stringResource(R.string.menu_settings)) },
+                selected = false,
+                onClick = onSettingsClick,
+                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
+            )
         }
     }
 }

@@ -1,8 +1,6 @@
 package com.android.contacts.contacts.ui
 
 import android.net.Uri
-import androidx.annotation.Size
-import androidx.compose.ui.graphics.Color
 
 data class ContactItem(
     val id: Long,
@@ -12,13 +10,8 @@ data class ContactItem(
     val snippet: String? = null,
 )
 
-@Suppress("detekt:MagicNumber")
-internal fun nameToColor(name: String): Color {
-    val hash = name.fold(0) { acc, c -> acc * 31 + c.code }
-    val hue = ((hash % 360) + 360) % 360
-    val hsv = floatArrayOf(hue.toFloat(), 0.6f, 0.75f)
-    return Color(android.graphics.Color.HSVToColor(hsv))
-}
+internal fun nameToColorIndex(name: String, count: Int): Int =
+    ((name.fold(0) { acc, c -> acc * 31 + c.code } % count) + count) % count
 
 internal val testContacts = listOf(
     ". some contact 1",

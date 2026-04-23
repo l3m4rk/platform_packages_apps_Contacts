@@ -41,8 +41,8 @@ internal class AccountsRepositoryImpl @Inject constructor(
                                 account.dataSet,
                                 accountInfo.type.getDisplayIcon(context),
                             ),
-                            displayName = accountInfo.getNameLabel().toString(),
-                            icon = accountInfo.getIcon(),
+                            displayName = accountInfo.nameLabel.toString(),
+                            icon = accountInfo.icon,
                         )
                     },
                 hasGroupWritableAccounts = accounts.any { it.type.isGroupMembershipEditable },

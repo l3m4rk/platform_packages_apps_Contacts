@@ -37,6 +37,7 @@ internal fun ContactsTopBar(
     onSearchClosed: () -> Unit,
     onMenuClick: () -> Unit,
     modifier: Modifier = Modifier,
+    showMenuButton: Boolean = true,
     trailingActions: @Composable () -> Unit = {},
     searchContent: @Composable ColumnScope.() -> Unit = {},
 ) {
@@ -67,7 +68,7 @@ internal fun ContactsTopBar(
                                 contentDescription = stringResource(R.string.back_arrow_content_description),
                             )
                         }
-                    } else {
+                    } else if (showMenuButton) {
                         IconButton(onClick = onMenuClick) {
                             Icon(
                                 imageVector = Icons.Default.Menu,
@@ -111,16 +112,19 @@ internal fun GroupTopBar(
     title: String,
     onMenuClick: () -> Unit,
     modifier: Modifier = Modifier,
+    showMenuButton: Boolean = true,
     actions: @Composable () -> Unit = {},
 ) {
     TopAppBar(
         title = { Text(title) },
         navigationIcon = {
-            IconButton(onClick = onMenuClick) {
-                Icon(
-                    imageVector = Icons.Default.Menu,
-                    contentDescription = stringResource(R.string.navigation_drawer_open),
-                )
+            if (showMenuButton) {
+                IconButton(onClick = onMenuClick) {
+                    Icon(
+                        imageVector = Icons.Default.Menu,
+                        contentDescription = stringResource(R.string.navigation_drawer_open),
+                    )
+                }
             }
         },
         actions = { actions() },

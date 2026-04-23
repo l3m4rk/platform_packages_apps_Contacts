@@ -32,7 +32,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.PermanentNavigationDrawer
 import androidx.compose.material3.AlertDialog
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -88,6 +90,7 @@ fun ContactsScreen(
     onSettingsClick: () -> Unit,
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val isExpanded = LocalConfiguration.current.screenWidthDp >= 840
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
     val allContactsTitle = stringResource(R.string.contactsList)
@@ -123,31 +126,31 @@ fun ContactsScreen(
         }
     }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ContactsDrawerContent(
-                uiState = uiState,
-                onAllContactsClick = {
-                    viewModel.onViewSelected(ContactsView.ALL_CONTACTS)
-                    scope.launch { drawerState.close() }
-                },
-                onGroupClick = { group ->
-                    viewModel.onGroupSelected(group)
-                    scope.launch { drawerState.close() }
-                },
-                onCreateLabelClick = {
-                    scope.launch { drawerState.close() }
-                    onCreateLabel()
-                },
-                onAccountClick = { item ->
-                    viewModel.onAccountSelected(item)
-                    scope.launch { drawerState.close() }
-                },
-                onSettingsClick = onSettingsClick,
-            )
-        },
-    ) {
+    val drawerContent: @Composable () -> Unit = {
+        ContactsDrawerContent(
+            uiState = uiState,
+            isPermanent = isExpanded,
+            onAllContactsClick = {
+                viewModel.onViewSelected(ContactsView.ALL_CONTACTS)
+                if (!isExpanded) scope.launch { drawerState.close() }
+            },
+            onGroupClick = { group ->
+                viewModel.onGroupSelected(group)
+                if (!isExpanded) scope.launch { drawerState.close() }
+            },
+            onCreateLabelClick = {
+                if (!isExpanded) scope.launch { drawerState.close() }
+                onCreateLabel()
+            },
+            onAccountClick = { item ->
+                viewModel.onAccountSelected(item)
+                if (!isExpanded) scope.launch { drawerState.close() }
+            },
+            onSettingsClick = onSettingsClick,
+        )
+    }
+
+    val scaffoldContent: @Composable () -> Unit = {
         Scaffold(
             modifier = Modifier.nestedScroll(nestedScrollConnection),
             topBar = {
@@ -173,6 +176,7 @@ fun ContactsScreen(
                     GroupTopBar(
                         title = topBarTitle,
                         onMenuClick = { scope.launch { drawerState.open() } },
+                        showMenuButton = !isExpanded,
                         actions = {
                             selectedGroup?.let { group ->
                                 IconButton(onClick = { onAddMember(group) }) {
@@ -248,6 +252,7 @@ fun ContactsScreen(
                     onSearchOpen = viewModel::onSearchOpen,
                     onSearchClosed = viewModel::onSearchClosed,
                     onMenuClick = { scope.launch { drawerState.open() } },
+                    showMenuButton = !isExpanded,
                     modifier = Modifier
                         .fillMaxWidth()
                         .onSizeChanged { searchBarHeightPx = it.height.toFloat() }
@@ -324,6 +329,16 @@ fun ContactsScreen(
         }
     }
 
+    if (isExpanded) {
+        PermanentNavigationDrawer(drawerContent = drawerContent, content = scaffoldContent)
+    } else {
+        ModalNavigationDrawer(
+            drawerState = drawerState,
+            drawerContent = drawerContent,
+            content = scaffoldContent,
+        )
+    }
+
     if (uiState.showDeleteConfirmation) {
         DeleteConfirmationDialog(
             onConfirm = viewModel::onDeleteConfirmed,
@@ -342,7 +357,10 @@ private fun DeleteConfirmationDialog(
         text = { Text(stringResource(R.string.batch_delete_confirmation)) },
         confirmButton = {
             TextButton(onClick = onConfirm) {
-                Text(stringResource(R.string.deleteConfirmation_positive_button))
+                Text(
+                    text = stringResource(R.string.deleteConfirmation_positive_button),
+                    color = MaterialTheme.colorScheme.error,
+                )
             }
         },
         dismissButton = {
@@ -502,11 +520,12 @@ private fun ContactList(
     onSelectionToggle: ((Long) -> Unit)? = null,
     onContactLongClick: ((Long) -> Unit)? = null,
 ) {
+    val scrollbarColor = MaterialTheme.colorScheme.outlineVariant
     LazyColumn(
         state = listState,
         modifier = Modifier
             .fillMaxSize()
-            .scrollbar(listState),
+            .scrollbar(listState, scrollbarColor),
     ) {
         items(contacts, key = { it.id }) { contact ->
             ContactListItem(
@@ -521,7 +540,7 @@ private fun ContactList(
 }
 
 // TODO: move to ui utils
-fun Modifier.scrollbar(state: LazyListState): Modifier = this.drawWithContent {
+fun Modifier.scrollbar(state: LazyListState, color: Color): Modifier = this.drawWithContent {
     drawContent()
     val layoutInfo = state.layoutInfo
     val totalItems = layoutInfo.totalItemsCount
@@ -538,7 +557,7 @@ fun Modifier.scrollbar(state: LazyListState): Modifier = this.drawWithContent {
     val thumbBottom = size.height * thumbsEndFraction
 
     drawRoundRect(
-        color = Color.Gray.copy(alpha = 0.5f),
+        color = color,
         topLeft = Offset(size.width - 6.dp.toPx(), thumbTop),
         size = Size(4.dp.toPx(), thumbBottom - thumbTop),
         cornerRadius = CornerRadius(2.dp.toPx()),

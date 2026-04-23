@@ -17,10 +17,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
@@ -32,8 +34,26 @@ import androidx.core.net.toUri
 import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import androidx.compose.ui.res.stringResource
+import com.android.contacts.R
 import com.android.contacts.ui.core.AppTheme
 import com.android.contacts.util.SearchUtil
+
+// MD3 tonal palette tone-80 (light) and tone-20 (dark) for 5 hues matching Google Contacts style
+private val avatarPaletteLight = listOf(
+    Color(0xFFF48FB1), // pink
+    Color(0xFFFFD54F), // amber
+    Color(0xFFCE93D8), // purple
+    Color(0xFF81C784), // green
+    Color(0xFF80DEEA), // cyan
+)
+private val avatarPaletteDark = listOf(
+    Color(0xFF880E4F), // pink
+    Color(0xFF4E3900), // amber
+    Color(0xFF4A0072), // purple
+    Color(0xFF1B5E20), // green
+    Color(0xFF006064), // cyan
+)
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -84,6 +104,7 @@ internal fun ContactListItem(
         } else null,
         modifier = Modifier.combinedClickable(
             onClick = onSelectionToggle ?: onClick,
+            onLongClickLabel = if (onLongClick != null) stringResource(R.string.multi_picker_select_action) else null,
             onLongClick = onLongClick,
         ),
     )
@@ -104,8 +125,12 @@ private fun ContactAvatar(contact: ContactItem) {
                 .clip(CircleShape),
         )
     } else {
-        val backgroundColor =
-            remember(contact.displayName) { nameToColor(contact.displayName) }
+        val isDark = isSystemInDarkTheme()
+        val backgroundColor = remember(contact.displayName, isDark) {
+            val palette = if (isDark) avatarPaletteDark else avatarPaletteLight
+            palette[nameToColorIndex(contact.displayName, palette.size)]
+        }
+        val contentColor = if (backgroundColor.luminance() > 0.3f) Color(0xFF1C1B1F) else Color(0xFFECE6F0)
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
@@ -117,14 +142,14 @@ private fun ContactAvatar(contact: ContactItem) {
             if (initial != null && initial.isLetter()) {
                 Text(
                     text = initial.uppercaseChar().toString(),
-                    color = Color.White,
+                    color = contentColor,
                     style = MaterialTheme.typography.titleMedium,
                 )
             } else {
                 Icon(
                     imageVector = Icons.Default.Person,
                     contentDescription = null,
-                    tint = Color.White,
+                    tint = contentColor,
                     modifier = Modifier.size(24.dp),
                 )
             }

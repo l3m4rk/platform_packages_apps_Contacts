@@ -1,18 +1,16 @@
 package com.android.contacts.ui.core
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
+@Suppress("unused")
 private val AppShapes = Shapes(
     extraSmall = RoundedCornerShape(size = 12.dp),
     small = RoundedCornerShape(size = 16.dp),
@@ -33,7 +31,7 @@ fun AppTheme(
 
     MaterialTheme(
         colorScheme = colorScheme,
-        shapes = AppShapes,
+//        shapes = AppShapes,
         content = content,
     )
 }

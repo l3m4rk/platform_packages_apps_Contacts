@@ -60,7 +60,7 @@ class ContactsViewModel @Inject constructor(
                     emit(emptyList())
                 }
             }.collect { contacts ->
-                _uiState.update { it.copy(contacts = contacts, isLoading = false) }
+                _uiState.update { it.copy(contacts = contacts, groupedContacts = groupContacts(contacts), isLoading = false) }
             }
         }
         viewModelScope.launch {
@@ -255,6 +255,12 @@ class ContactsViewModel @Inject constructor(
             }
         }
     }
+
+    private fun groupContacts(contacts: List<ContactItem>): Map<String, List<ContactItem>> =
+        contacts.groupBy { contact ->
+            val first = contact.displayName.trimStart().firstOrNull()
+            if (first != null && first.isLetter()) first.uppercaseChar().toString() else "#"
+        }
 
     companion object {
         private const val SEARCH_DEBOUNCE = 300L

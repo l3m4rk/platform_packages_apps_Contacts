@@ -1,10 +1,15 @@
 package com.android.contacts.contacts.ui
 
 import android.net.Uri
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -34,6 +39,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.PermanentNavigationDrawer
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -76,6 +83,7 @@ import com.android.contacts.contacts.data.accounts.AccountDisplayItem
 import com.android.contacts.group.GroupListItem
 import kotlinx.coroutines.launch
 import android.icu.text.MessageFormat
+import com.google.common.collect.ImmutableMap
 import java.util.Locale
 
 @Composable
@@ -153,6 +161,7 @@ fun ContactsScreen(
     val scaffoldContent: @Composable () -> Unit = {
         Scaffold(
             modifier = Modifier.nestedScroll(nestedScrollConnection),
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
             topBar = {
                 if (uiState.isSelectionMode) {
                     BackHandler { viewModel.onExitSelectionMode() }
@@ -298,9 +307,10 @@ fun ContactsScreen(
         ) { padding ->
             val density = LocalDensity.current
             if (!uiState.isSearchActive) {
+                val statusBarTop = with(density) { WindowInsets.statusBars.getTop(density).toDp() }
                 val topPadding = (padding.calculateTopPadding() +
                     with(density) { searchBarOffsetPx.toDp() })
-                    .coerceAtLeast(0.dp)
+                    .coerceAtLeast(statusBarTop)
                 Column(
                     modifier = Modifier.padding(
                         top = topPadding,
@@ -443,7 +453,7 @@ internal fun ContactsContent(
                     modifier = modifier,
                 ) {
                     ContactList(
-                        contacts = uiState.contacts,
+                        groupedContacts = uiState.groupedContacts,
                         listState = listState,
                         onContactClick = onContactClick,
                         selectedContactIds = uiState.selectedContactIds,
@@ -454,7 +464,7 @@ internal fun ContactsContent(
             } else {
                 Box(modifier = modifier) {
                     ContactList(
-                        contacts = uiState.contacts,
+                        groupedContacts = uiState.groupedContacts,
                         listState = listState,
                         onContactClick = onContactClick,
                         selectedContactIds = uiState.selectedContactIds,
@@ -511,9 +521,10 @@ internal fun GroupInfoHeader(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun ContactList(
-    contacts: List<ContactItem>,
+    groupedContacts: Map<String, List<ContactItem>>,
     listState: LazyListState,
     onContactClick: (Uri) -> Unit,
     selectedContactIds: Set<Long> = emptySet(),
@@ -521,45 +532,47 @@ private fun ContactList(
     onContactLongClick: ((Long) -> Unit)? = null,
 ) {
     val scrollbarColor = MaterialTheme.colorScheme.outlineVariant
+    val surfaceColor = MaterialTheme.colorScheme.surfaceContainerLow
     LazyColumn(
         state = listState,
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(0.dp),
         modifier = Modifier
             .fillMaxSize()
             .scrollbar(listState, scrollbarColor),
     ) {
-        items(contacts, key = { it.id }) { contact ->
-            ContactListItem(
-                contact = contact,
-                onClick = { onContactClick(contact.lookupUri) },
-                isSelected = contact.id in selectedContactIds,
-                onSelectionToggle = onSelectionToggle?.let { toggle -> { toggle(contact.id) } },
-                onLongClick = onContactLongClick?.let { handler -> { handler(contact.id) } },
-            )
+        groupedContacts.forEach { (letter, group) ->
+            stickyHeader(key = "header_$letter") {
+                Text(
+                    text = letter,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(surfaceColor)
+                        .padding(start = 16.dp, top = 16.dp, bottom = 6.dp),
+                )
+            }
+            item(key = "group_$letter") {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                    ),
+                ) {
+                    group.forEachIndexed { index, contact ->
+                        ContactListItem(
+                            contact = contact,
+                            onClick = { onContactClick(contact.lookupUri) },
+                            isSelected = contact.id in selectedContactIds,
+                            onSelectionToggle = onSelectionToggle?.let { toggle -> { toggle(contact.id) } },
+                            onLongClick = onContactLongClick?.let { handler -> { handler(contact.id) } },
+                        )
+                    }
+                }
+            }
         }
     }
-}
-
-// TODO: move to ui utils
-fun Modifier.scrollbar(state: LazyListState, color: Color): Modifier = this.drawWithContent {
-    drawContent()
-    val layoutInfo = state.layoutInfo
-    val totalItems = layoutInfo.totalItemsCount
-    if (totalItems == 0) return@drawWithContent
-
-    val visibleItems = layoutInfo.visibleItemsInfo
-    val firstVisible = visibleItems.firstOrNull() ?: return@drawWithContent
-    val lastVisible = visibleItems.lastOrNull() ?: return@drawWithContent
-
-    val thumbsStartFraction = firstVisible.index.toFloat() / totalItems
-    val thumbsEndFraction = (lastVisible.index + 1).toFloat() / totalItems
-
-    val thumbTop = size.height * thumbsStartFraction
-    val thumbBottom = size.height * thumbsEndFraction
-
-    drawRoundRect(
-        color = color,
-        topLeft = Offset(size.width - 6.dp.toPx(), thumbTop),
-        size = Size(4.dp.toPx(), thumbBottom - thumbTop),
-        cornerRadius = CornerRadius(2.dp.toPx()),
-    )
 }

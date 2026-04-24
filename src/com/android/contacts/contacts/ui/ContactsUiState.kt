@@ -14,6 +14,7 @@ data class ContactsUiState(
     val selectedGroupId: Long = -1L,
     val selectedAccount: AccountDisplayItem? = null,
     val contacts: List<ContactItem> = emptyList(),
+    val groupedContacts: Map<String, List<ContactItem>> = emptyMap(),
     val isLoading: Boolean = false,
     val isRefreshing: Boolean = false,
     val isGroupEditMode: Boolean = false,
